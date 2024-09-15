@@ -1,0 +1,16 @@
+1726044521113	geckodriver	INFO	Listening on 127.0.0.1:57014
+1726044531047	geckodriver	INFO	Listening on 127.0.0.1:57026
+1726044712735	geckodriver	INFO	Listening on 127.0.0.1:57044
+1726044983744	geckodriver	INFO	Listening on 127.0.0.1:57062
+1726045089851	geckodriver	INFO	Listening on 127.0.0.1:57073
+1726045348937	geckodriver	INFO	Listening on 127.0.0.1:57094
+1726047401030	geckodriver	INFO	Listening on 127.0.0.1:57185
+[GFX1-]: Failed to get D3D11VideoDevice: 0x80004002
+[GFX1-]: Handling webrender error 5
+[GFX1-]: Failed to get D3D11VideoDevice: 0x80004002
+[GFX1-]: Handling webrender error 5
+[GFX1-]: Failed to get D3D11VideoDevice: 0x80004002
+[GFX1-]: Handling webrender error 5
+[GFX1-]: Failed to get D3D11VideoDevice: 0x80004002
+[GFX1-]: Handling webrender error 5
+1726047913854	geckodriver	INFO	Listening on 127.0.0.1:57346
