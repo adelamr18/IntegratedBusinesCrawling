@@ -20,7 +20,7 @@ def driver_intialize():
     return driver
 
 
-def parse_with_selenium(driver): 
+def navigate_to_main_category(driver): 
     driver.get('https://www.carrefouregypt.com/mafegy/en/fresh-food/n/c/clp_FEGY1600000')
     actions = ActionChains(driver)
     sleep(2)
@@ -34,13 +34,13 @@ def parse_with_selenium(driver):
         actions.move_to_element(element).perform()
         print(f"level 1 -- Hovered over: {element.get_attribute('rel')}")
 
-        for count in range(1,100):
-            try:
-                item = driver.find_elements(By.XPATH, f'//*[@id="__next"]/div[1]/div[2]/nav/div[2]/ul[2]/li[{count}]/a/p')[0]
-                print(f"level 2 -- Hovered over: {item.text}")
-            except:
-                print(f"{element.get_attribute('rel')} has {count-1} items")
-                break
+        # for count in range(1,100):
+        #     try:
+        #         item = driver.find_elements(By.XPATH, f'//*[@id="__next"]/div[1]/div[2]/nav/div[2]/ul[2]/li[{count}]/a/p')[0]
+        #         print(f"level 2 -- Hovered over: {item.text}")
+        #     except:
+        #         print(f"{element.get_attribute('rel')} has {count-1} items")
+        #         break
                 
 
 
@@ -82,23 +82,16 @@ def load_whole_page(driver, scroll_position=0, scroll_step=50, delay=0.1):
             return 
 
 def get_page_links(driver):
-    print("started")
-    elements_count_text = driver.find_element(By.CSS_SELECTOR,'[data-testid=page-info-content').text
-    numbers = re.findall(r'\d+', elements_count_text)  # Find all sequences of digits
-    numbers_only = int(''.join(numbers))  # Convert to integer after joining
-
+    all_items = driver.find_elements(By.CSS_SELECTOR, '.css-1npvvk7')
     item_urls = []
-    for row in range(1, numbers_only // 4):  # Now numbers_only is an integer
-        for col in range(1, 5):
-            try:
-                #print(f'row = {row} column = {col}')
-                item_url = driver.find_element(By.XPATH, f'//*[@id="__next"]/div[3]/div[1]/div[4]/div[2]/div[2]/ul/div/div[{row}]/div/div/div[{col}]/div/ul/div/div[1]/div[2]/a').get_attribute('href')
-                item_urls.append(item_url)
-                print(item_url)
-            except NoSuchElementException:
-                return item_urls
+    for element in all_items:
+        a_element = element.find_element(By.TAG_NAME, 'a')
+        # Extract the href attribute from the <a> tag
+        href = a_element.get_attribute('href')
+        if href:  # Ensure href is not None
+            item_urls.append(href)
+    print(len(item_urls))
     pass
 
 driver = driver_intialize()
-driver.get('https://www.carrefouregypt.com/mafegy/en/c/FEGY1660000')
-load_whole_page(driver,scroll_position=0, scroll_step=80, delay=0.1)
+navigate_to_main_category(driver)
