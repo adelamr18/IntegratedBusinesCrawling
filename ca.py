@@ -11,16 +11,7 @@ import re
 from selenium.common.exceptions import NoSuchElementException
 import csv
 import os
-
- # Initialize the Firefox driver
-def driver_intialize():
-    firefox_options = Options()
-    firefox_options.headless = True
-    firefox_options.binary_location = r"./Firefox.app/Contents/MacOS/firefox"
-    service = Service(executable_path=r'./geckodriver')
-    driver = webdriver.Firefox(service=service, options=firefox_options)
-    return driver
-
+from utils.helpers import driver_intialize
 
 def navigate_to_main_category(driver): 
     driver.get('https://www.carrefouregypt.com/mafegy/en/c/NFEGY2300000')
@@ -49,7 +40,6 @@ def navigate_to_main_category(driver):
         actions.move_to_element(driver.find_element(By.XPATH, '//*[@id="__next"]/div[1]/div[2]/nav/div[1]/div[1]/a')).perform()
     driver.quit()
        
-
 
 def navigate_to_products_list(driver , url):
     correct_format_pattern = r"https://www\.carrefouregypt\.com/mafegy/en/c/.*\d+"
