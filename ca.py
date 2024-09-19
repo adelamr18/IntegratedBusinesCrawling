@@ -16,8 +16,8 @@ import os
 def driver_intialize():
     firefox_options = Options()
     firefox_options.headless = True
-    firefox_options.binary_location = r"C:\Program Files\Mozilla Firefox\firefox.exe"
-    service = Service(executable_path=r'I:\Web Crawler Project\geckodriver.exe')
+    firefox_options.binary_location = r"./Firefox.app/Contents/MacOS/firefox"
+    service = Service(executable_path=r'./geckodriver')
     driver = webdriver.Firefox(service=service, options=firefox_options)
     return driver
 
