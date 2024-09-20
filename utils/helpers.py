@@ -2,6 +2,7 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
 from selenium import webdriver
 
+
  # Initialize the Firefox driver
 def driver_intialize():
     firefox_options = Options()
