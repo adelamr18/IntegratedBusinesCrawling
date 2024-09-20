@@ -1,21 +1,32 @@
-from selenium.webdriver.common.action_chains import ActionChains
+import re
 from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.firefox.service import Service
 from selenium import webdriver
-
- # Initialize the Firefox driver
-def driver_intialize():
-    firefox_options = Options()
-    firefox_options.headless = True
-    firefox_options.binary_location = r"C:\Program Files\Mozilla Firefox\firefox.exe"
-    service = Service(executable_path=r'I:\Web Crawler Project\geckodriver.exe')
-    driver = webdriver.Firefox(service=service, options=firefox_options)
-    return driver
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.firefox.options import Options
+from utils.helpers import driver_intialize
 
 def extract_product_price():
     driver = driver_intialize()
-    driver.get('https://www.carrefouregypt.com/mafegy/en/white-eggs/mychoice-white-eggs-30p/p/305478')
-    actions = ActionChains(driver)
-    price = driver.find_elements(By.CSS_SELECTOR, '.css-17ctnp')
-    print(price)
+    driver.get('https://www.carrefouregypt.com/mafegy/en/white-eggs/mychoice-white-eggs-30p/p/305478')  # Example URL
+
+    try:
+        price_element = driver.find_element(By.CSS_SELECTOR, '.css-17ctnp')
+    except:
+        price_element = driver.find_element(By.XPATH, "//h2[contains(text(), 'EGP')]")
+
+    # Extract the text, e.g., 'EGP 190.00(Inc. VAT)'
+    price_text = price_element.text
+
+    # Use regex to extract the numeric part (including decimals)
+    match = re.search(r'\d+\.\d+', price_text)  # Matches numbers with decimals like 190.00
+
+    if match:
+        price_number = match.group(0).split('.')[0]  # Extract only the integer part
+        print(price_number)  # Output should be: 190
+    else:
+        print("Price not found!")
+
+    driver.quit()
+
+# Run the function
+extract_product_price()

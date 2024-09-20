@@ -7,7 +7,7 @@ from selenium import webdriver
 def driver_intialize():
     firefox_options = Options()
     firefox_options.headless = True
-    firefox_options.binary_location = r"./Firefox.app/Contents/MacOS/firefox"
+    firefox_options.binary_location = r"/Applications/Firefox.app/Contents/MacOS/firefox"
     service = Service(executable_path=r'./geckodriver')
     driver = webdriver.Firefox(service=service, options=firefox_options)
     return driver
