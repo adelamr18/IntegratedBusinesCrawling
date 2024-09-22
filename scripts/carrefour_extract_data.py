@@ -6,8 +6,7 @@ from utils.helpers import driver_intialize, convert_url_to_arabic
 from openpyxl import Workbook, load_workbook
 import csv
 
-def extract_product_name_in_arabic(url):
-    driver = driver_intialize()
+def extract_product_name_in_arabic(driver, url):
     formatted_url_in_arabic = convert_url_to_arabic(url)
     driver.get(formatted_url_in_arabic)
     
@@ -25,9 +24,7 @@ def extract_product_name_in_arabic(url):
     finally:
         driver.quit()
  
-def extract_image_url(url):
-    driver = driver_intialize()
-    driver.get(url)
+def extract_image_url(driver):
     
     try:
         # Select the div with the specified class
@@ -41,10 +38,7 @@ def extract_image_url(url):
         print(f"Error extracting image URL: {e}")
         return ""        
         
-def extract_product_name_in_english(url):
-    driver = driver_intialize()
-    driver.get(url)
-    
+def extract_product_name_in_english(driver):
     try:
         product_name_ar = driver.find_element(By.CSS_SELECTOR, '.css-106scfp').text
         
@@ -60,10 +54,7 @@ def extract_product_name_in_english(url):
         driver.quit()        
     
 
-def extract_product_price_before_offer(url):
-    driver = driver_intialize()
-    driver.get(url)
-    
+def extract_product_price_before_offer(driver):    
     price_text = ""
 
     try:
@@ -112,10 +103,7 @@ def extract_product_price_before_offer(url):
 
     return ""
 
-def extract_product_price_after_offer(url):
-    driver = driver_intialize()
-    driver.get(url)
-    
+def extract_product_price_after_offer(driver):
     price_text = ""
     try:
         price_element = driver.find_element(By.CSS_SELECTOR, '.css-1i90gmp')
@@ -175,7 +163,7 @@ def write_to_excel(output_file_name, id_counter, product_name_in_arabic, product
     # Save the workbook after each append
     workbook.save(output_file_name)
 
-def process_urls_and_save_to_excel(csv_file, output_file):
+def process_urls_and_save_to_excel(csv_file, output_file, driver):
     
     id_counter = 1
     todays_date = datetime.now().strftime('%d_%m_%Y')
@@ -189,19 +177,19 @@ def process_urls_and_save_to_excel(csv_file, output_file):
                 url = row['URL']
                 
                 # Extract product name in Arabic
-                product_name_in_arabic = extract_product_name_in_arabic(url)
+                product_name_in_arabic = extract_product_name_in_arabic(driver, url)
                 
                 # Extract product name in English
-                product_name_in_english = extract_product_name_in_english(url)
+                product_name_in_english = extract_product_name_in_english(driver)
                 
                 # Extract the price for each URL before offer
-                price_before_offer = extract_product_price_before_offer(url)
+                price_before_offer = extract_product_price_before_offer(driver)
                 
                 # Extract the price for each url after offer if exists
-                price_after_offer = extract_product_price_after_offer(url)
+                price_after_offer = extract_product_price_after_offer(driver)
                 
                 # Extract image url
-                image_url = ''
+                image_url = extract_image_url(driver)
                 
                 # Write to Excel directly for each URL
                 write_to_excel(output_file_name, id_counter, product_name_in_arabic, product_name_in_english, category, price_before_offer, price_after_offer, image_url, url)
@@ -214,7 +202,8 @@ def process_urls_and_save_to_excel(csv_file, output_file):
         print(f"An error occurred during processing: {e}")
 
 # Call the function with the appropriate CSV file path and output directory
-input_csv_path = '/Users/gebrila/Desktop/SelfStudy/CarrefourAutomation/extractions/extract_carrefour_urls_19_09_2024.csv'
-output_directory = '/Users/gebrila/Desktop/SelfStudy/CarrefourAutomation/extractions/'
-process_urls_and_save_to_excel(input_csv_path, output_directory)
+driver = driver_intialize()
+input_csv_path = r'../extractions/extract_carrefour_urls_19_09_2024.csv'
+output_directory = r'../extractions'
+process_urls_and_save_to_excel(input_csv_path, output_directory, driver)
 
