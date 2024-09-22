@@ -2,39 +2,62 @@ import re
 import os
 from datetime import datetime
 from selenium.webdriver.common.by import By
-from utils.helpers import driver_intialize
+from utils.helpers import driver_intialize, convert_url_to_arabic
 from openpyxl import Workbook, load_workbook
 import csv
 
-def extract_product_price_after_offer(url):
+def extract_product_name_in_arabic(url):
+    driver = driver_intialize()
+    formatted_url_in_arabic = convert_url_to_arabic(url)
+    driver.get(formatted_url_in_arabic)
+    
+    try:
+        product_name_ar = driver.find_element(By.CSS_SELECTOR, '.css-106scfp').text
+        
+        if not product_name_ar:
+            return "لم يتم العثور على اسم المنتج"
+
+        return product_name_ar
+
+    except Exception as e:
+        print(f"Error extracting product name: {e}")
+        return "لم يتم العثور على اسم المنتج"
+    finally:
+        driver.quit()
+ 
+def extract_image_url(url):
     driver = driver_intialize()
     driver.get(url)
     
-    price_text = ""
     try:
-        price_element = driver.find_element(By.CSS_SELECTOR, '.css-1i90gmp')
-        price_text = price_element.text
+        # Select the div with the specified class
+        image_div = driver.find_element(By.CSS_SELECTOR, 'div.css-1c2pck7 img')
         
-        # Extract the numeric part
-        match = re.search(r'\d+\.\d+', price_text)
-        return match.group(0) if match else "Price not found"
+        # Get the src attribute of the img tag
+        img_url = image_div.get_attribute('src')
+        return img_url
 
-    except Exception:
-        try:
-            price_element = driver.find_element(By.XPATH, "//h2[contains(text(), 'EGP')]")
-            price_text = price_element.text
-            
-            # Extract the numeric part
-            match = re.search(r'\d+\.\d+', price_text)
-            return match.group(0) if match else "Price not found"
-            
-        except Exception:
-            return "Price not found"
+    except Exception as e:
+        print(f"Error extracting image URL: {e}")
+        return ""        
+        
+def extract_product_name_in_english(url):
+    driver = driver_intialize()
+    driver.get(url)
+    
+    try:
+        product_name_ar = driver.find_element(By.CSS_SELECTOR, '.css-106scfp').text
+        
+        if not product_name_ar:
+            return "Product name not found"
 
+        return product_name_ar
+
+    except Exception as e:
+        print(f"Error extracting product name: {e}")
+        return "Product name not found"
     finally:
-        driver.quit()
-
-    return ""
+        driver.quit()        
     
 
 def extract_product_price_before_offer(url):
@@ -60,7 +83,7 @@ def extract_product_price_before_offer(url):
             # Extract only the numeric part from the price before the offer
             match = re.search(r'\d+\.\d+', price_element_with_offer_text)
             print(match.group(0))
-            return match.group(0) if match else ""
+            return match.group(0) if match else "Price not found"
 
     except Exception as e:
         print("Offer price element not found or promotional code detected, trying to get regular price...")
@@ -89,7 +112,27 @@ def extract_product_price_before_offer(url):
 
     return ""
 
-def write_to_excel(output_file_name, id_counter, category, price_before_offer, price_after_offer, url):
+def extract_product_price_after_offer(url):
+    driver = driver_intialize()
+    driver.get(url)
+    
+    price_text = ""
+    try:
+        price_element = driver.find_element(By.CSS_SELECTOR, '.css-1i90gmp')
+        price_text = price_element.text
+        
+        # Extract the numeric part
+        match = re.search(r'\d+\.\d+', price_text)
+        return match.group(0) if match else ""
+
+    except Exception:
+        pass
+
+    finally:
+        driver.quit()
+
+
+def write_to_excel(output_file_name, id_counter, product_name_in_arabic, product_name_in_english, category, price_before_offer, price_after_offer, image_url, url):
     # Check if the file exists
     file_exists = os.path.isfile(output_file_name)
     
@@ -102,29 +145,30 @@ def write_to_excel(output_file_name, id_counter, category, price_before_offer, p
         
         # Write the header if the file doesn't exist
         sheet.append([
-            'Merchant', 'id', 'brand ar', 'brand en', 'barcode', 'Item Name AR', 
-            'Item Name EN', 'Category', 'Parent Category', 'price before', 
-            'price after', 'offer start date', 'offer end date', 'url', 
-            'picture', 'crawled on'
+            'Merchant', 'Id', 'Brand ar', 'Brand en', 'Barcode', 'Item Name AR', 
+            'Item Name EN', 'Category', 'Parent Category', 'Price before', 
+            'Price after', 'Offer start date', 'Offer end date', 'Url', 
+            'Picture', 'Type', 'Crawled on'
         ])
 
     # Writing data into Excel
     sheet.append([
         'Carrefour',             # Merchant
-        id_counter,              # id (incremental)
-        '',                      # brand ar (empty for now)
-        '',                      # brand en (empty for now)
-        '',                      # barcode
-        '',                      # Item Name AR
-        '',                      # Item Name EN
+        id_counter,              # Id (incremental)
+        '',                      # Brand ar 
+        '',                      # Brand en
+        '',                      # Barcode
+        product_name_in_arabic,  # Item Name AR
+        product_name_in_english, # Item Name EN
         '',                      # Category
         '',                      # Parent Category
         price_before_offer,      # Price before offer
-        price_after_offer,       # price after offer
-        '',                      # offer start date
-        '',                      # offer end date
-        url,                     # URL of the product
-        '',                      # picture (empty for now)
+        price_after_offer,       # Price after offer
+        '',                      # Offer start date
+        '',                      # Offer end date
+        url,                     # Product url
+        image_url,                      # Product picture
+        'Website',               # Type of information source
         datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # crawled on timestamp
     ])
 
@@ -144,14 +188,23 @@ def process_urls_and_save_to_excel(csv_file, output_file):
                 category = row['Main Category']
                 url = row['URL']
                 
+                # Extract product name in Arabic
+                product_name_in_arabic = extract_product_name_in_arabic(url)
+                
+                # Extract product name in English
+                product_name_in_english = extract_product_name_in_english(url)
+                
                 # Extract the price for each URL before offer
                 price_before_offer = extract_product_price_before_offer(url)
                 
                 # Extract the price for each url after offer if exists
                 price_after_offer = extract_product_price_after_offer(url)
                 
+                # Extract image url
+                image_url = ''
+                
                 # Write to Excel directly for each URL
-                write_to_excel(output_file_name, id_counter, category, price_before_offer, price_after_offer, url)
+                write_to_excel(output_file_name, id_counter, product_name_in_arabic, product_name_in_english, category, price_before_offer, price_after_offer, image_url, url)
                 
                 id_counter += 1
 

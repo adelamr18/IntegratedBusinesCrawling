@@ -11,3 +11,6 @@ def driver_intialize():
     service = Service(executable_path=r'./geckodriver')
     driver = webdriver.Firefox(service=service, options=firefox_options)
     return driver
+
+def convert_url_to_arabic(url):
+    return url.replace('/en/', '/ar/')
