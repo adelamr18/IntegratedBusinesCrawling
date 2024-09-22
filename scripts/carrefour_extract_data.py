@@ -7,8 +7,6 @@ from openpyxl import Workbook, load_workbook
 import csv
 
 def extract_product_name_in_arabic(driver, url):
-    formatted_url_in_arabic = convert_url_to_arabic(url)
-    driver.get(formatted_url_in_arabic)
     
     try:
         product_name_ar = driver.find_element(By.CSS_SELECTOR, '.css-106scfp').text
@@ -17,12 +15,13 @@ def extract_product_name_in_arabic(driver, url):
             return "لم يتم العثور على اسم المنتج"
 
         return product_name_ar
+    
 
     except Exception as e:
         print(f"Error extracting product name: {e}")
         return "لم يتم العثور على اسم المنتج"
     finally:
-        driver.quit()
+        pass
  
 def extract_image_url(driver):
     
@@ -51,7 +50,7 @@ def extract_product_name_in_english(driver):
         print(f"Error extracting product name: {e}")
         return "Product name not found"
     finally:
-        driver.quit()        
+        pass       
     
 
 def extract_product_price_before_offer(driver):    
@@ -99,7 +98,7 @@ def extract_product_price_before_offer(driver):
                 return "Price not found"
 
     finally:
-        driver.quit()
+        pass
 
     return ""
 
@@ -117,7 +116,7 @@ def extract_product_price_after_offer(driver):
         pass
 
     finally:
-        driver.quit()
+        pass
 
 
 def write_to_excel(output_file_name, id_counter, product_name_in_arabic, product_name_in_english, category, price_before_offer, price_after_offer, image_url, url):
@@ -175,10 +174,12 @@ def process_urls_and_save_to_excel(csv_file, output_file, driver):
             for row in reader:
                 category = row['Main Category']
                 url = row['URL']
-                
+                formatted_url_in_arabic = convert_url_to_arabic(url)
+                driver.get(formatted_url_in_arabic)
                 # Extract product name in Arabic
-                product_name_in_arabic = extract_product_name_in_arabic(driver, url)
-                
+                product_name_in_arabic = extract_product_name_in_arabic(driver, formatted_url_in_arabic)
+
+                driver.get(url)
                 # Extract product name in English
                 product_name_in_english = extract_product_name_in_english(driver)
                 
@@ -197,7 +198,7 @@ def process_urls_and_save_to_excel(csv_file, output_file, driver):
                 id_counter += 1
 
         print(f"Data successfully saved to {output_file_name}")
-
+        driver.quit()
     except Exception as e:
         print(f"An error occurred during processing: {e}")
 
