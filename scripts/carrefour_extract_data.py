@@ -8,6 +8,19 @@ import csv
 import re
 from datetime import datetime, timedelta
 
+def extract_brand_name(driver):
+    try:
+        brand_name = driver.find_element(By.CSS_SELECTOR, '.css-1nnke3o').text
+        
+        if not brand_name:
+            return ""
+
+        return brand_name
+
+    except Exception as e:
+        print(f"Error extracting brand name: {e}")
+        return ""
+
 def extract_offer_end_date(driver):
     try:
         # Find the second child element that contains the number of days
@@ -103,6 +116,8 @@ def extract_product_name_in_arabic(driver, url):
     except Exception as e:
         print(f"Error extracting product name: {e}")
         return "لم يتم العثور على اسم المنتج"
+    
+    
 def extract_image_url(driver):
     
     try:
@@ -189,7 +204,7 @@ def extract_product_price_after_offer(driver):
     except Exception:
         return ""
 
-def write_to_excel(output_file_name, product_id, product_barcode, child_category, parent_category, product_name_in_arabic, product_name_in_english, price_before_offer, price_after_offer, offer_end_data, image_url, url):
+def write_to_excel(output_file_name, product_id, brand_name_in_arabic, brand_name_in_english, product_barcode, child_category, parent_category, product_name_in_arabic, product_name_in_english, price_before_offer, price_after_offer, offer_end_data, image_url, url):
     # Check if the file exists
     file_exists = os.path.isfile(output_file_name)
     
@@ -215,8 +230,8 @@ def write_to_excel(output_file_name, product_id, product_barcode, child_category
     sheet.append([
         'Carrefour',             # Merchant
         product_id,              # Id
-        '',                      # Brand ar 
-        '',                      # Brand en
+        brand_name_in_arabic,    # Brand ar 
+        brand_name_in_english,   # Brand en
         product_barcode,         # Barcode
         product_name_in_arabic,  # Item Name AR
         product_name_in_english, # Item Name EN
@@ -250,10 +265,16 @@ def process_urls_and_save_to_excel(csv_file, output_file, driver):
                 # Extract product name in Arabic
                 driver.get(formatted_url_in_arabic)
                 product_name_in_arabic = extract_product_name_in_arabic(driver, formatted_url_in_arabic)
+                
+                # Extract brand name in Arabic
+                brand_name_in_arabic = extract_brand_name(driver)
             
                 # Extract product name in English
                 driver.get(url)
                 product_name_in_english = extract_product_name_in_english(driver)
+                
+                # Extract brand name in English
+                brand_name_in_english = extract_brand_name(driver)
                 
                 # Extract product id
                 product_id = extract_product_id(url)
@@ -280,7 +301,7 @@ def process_urls_and_save_to_excel(csv_file, output_file, driver):
                 image_url = extract_image_url(driver)
                 
                 # Write to Excel directly for each URL
-                write_to_excel(output_file_name, product_id, product_barcode, child_category, parent_category, product_name_in_arabic, product_name_in_english, price_before_offer, price_after_offer, offer_end_data, image_url, url)
+                write_to_excel(output_file_name, product_id, brand_name_in_arabic, brand_name_in_english, product_barcode, child_category, parent_category, product_name_in_arabic, product_name_in_english, price_before_offer, price_after_offer, offer_end_data, image_url, url)
                 
 
         print(f"Data successfully saved to {output_file_name}")
