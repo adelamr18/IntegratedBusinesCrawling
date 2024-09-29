@@ -1,0 +1,11 @@
+# Ignore the 'Env' directory
+Env/
+
+# Ignore the 'myenv' directory
+myenv/
+
+# Ignore the geckodriver binary or any files named 'geckodriver'
+geckodriver
+
+# Ignore the Firefox application (if it's a file or folder)
+Firefox.app
