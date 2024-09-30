@@ -1,7 +1,9 @@
 import re
 import os
+import sys
 from datetime import datetime
 from selenium.webdriver.common.by import By
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.helpers import driver_intialize, convert_url_to_arabic
 from openpyxl import Workbook, load_workbook
 import csv
@@ -311,7 +313,7 @@ def process_urls_and_save_to_excel(csv_file, output_file, driver):
 
 # Call the function with the appropriate CSV file path and output directory
 driver = driver_intialize()
-input_csv_path = r'../extractions/extract_carrefour_urls_19_09_2024.csv'
-output_directory = r'../extractions'
+input_csv_path = r'extractions/Carrefour/extract_carrefour_urls_19_09_2024.csv'
+output_directory = r'extractions/Carrefour'
 process_urls_and_save_to_excel(input_csv_path, output_directory, driver)
 
