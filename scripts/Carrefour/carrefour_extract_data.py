@@ -1,7 +1,7 @@
 import re
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from selenium.webdriver.common.by import By
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.helpers import driver_intialize, convert_url_to_arabic
@@ -11,6 +11,7 @@ import re
 from datetime import datetime, timedelta
 input_csv_path = os.path.join('extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
 output_directory = os.path.join('extractions', 'Carrefour')
+from models.Product import Product
 
 def extract_brand_name(driver):
     try:
@@ -50,44 +51,19 @@ def extract_offer_end_date(driver):
 
     except Exception as e:
         return ""
-    
-def extract_parent_category(driver):
+
+
+def extract_categories(driver):
     try:
-
         elements = driver.find_elements(By.CSS_SELECTOR, '.css-iamwo8')
-        
-        # Skip the first and last elements
-        selected_elements = elements[1:-1]
-
-        # Read text from each element and handle empty texts
-        parent_categories = []
-        for element in selected_elements:
-            text = element.text.strip()
-            # Append the text or an empty string if the text is empty
-            parent_categories.append(text if text else "")
-
-        # Join the results with '-'
-        formatted_result = ' - '.join(parent_categories)
-        
-        return formatted_result if formatted_result else "Parent categories not found"
-
+        parent_categories = [element.text.strip() for element in elements if element.text.strip()]
+        while len(parent_categories) < 7:
+            parent_categories.append("")
+        return parent_categories[:7]
     except Exception as e:
         print(f"Error extracting parent categories: {e}")
-        return "Parent categories not found"
+        return [""] * 7
 
-def extract_child_category(driver):
-    try:
-        child_category = driver.find_element(By.CSS_SELECTOR, '.css-82hvi6').text
-        
-        if not child_category:
-            return "Child category not found"
-
-        return child_category
-
-    except Exception as e:
-        print(f"Error extracting child category: {e}")
-        return "Child category not found"
-    
 def extract_product_barcode(driver):
     try:
          
@@ -120,8 +96,7 @@ def extract_product_name_in_arabic(driver, url):
     except Exception as e:
         print(f"Error extracting product name: {e}")
         return "لم يتم العثور على اسم المنتج"
-    
-    
+
 def extract_image_url(driver):
     
     try:
@@ -134,8 +109,8 @@ def extract_image_url(driver):
 
     except Exception as e:
         print(f"Error extracting image URL: {e}")
-        return "Image not found"        
-        
+        return "Image not found"  
+
 def extract_product_name_in_english(driver):
     try:
         product_name_ar = driver.find_element(By.CSS_SELECTOR, '.css-106scfp').text
@@ -148,7 +123,7 @@ def extract_product_name_in_english(driver):
     except Exception as e:
         print(f"Error extracting product name: {e}")
         return "Product name not found"
-      
+
 def extract_product_price_before_offer(driver):    
     price_text = ""
 
@@ -196,122 +171,144 @@ def extract_product_price_before_offer(driver):
     return "Price not found"
 
 def extract_product_price_after_offer(driver):
-    price_text = ""
     try:
         price_element = driver.find_element(By.CSS_SELECTOR, '.css-1i90gmp')
         price_text = price_element.text
-        
-        # Extract the numeric part
         match = re.search(r'\d+\.\d+', price_text)
         return match.group(0) if match else ""
-
     except Exception:
         return ""
 
-def write_to_excel(output_file_name, product_id, brand_name_in_arabic, brand_name_in_english, product_barcode, child_category, parent_category, product_name_in_arabic, product_name_in_english, price_before_offer, price_after_offer, offer_end_data, image_url, url):
-    # Check if the file exists
+# Function to write the product data into an Excel file
+def write_to_excel(output_file_name, product):
     file_exists = os.path.isfile(output_file_name)
-    
-    does_offer_exist = price_after_offer or False
-    offer_start_date = datetime.now().strftime('%Y-%m-%d') if does_offer_exist else ''
-
     if file_exists:
         workbook = load_workbook(output_file_name)
         sheet = workbook.active
     else:
         workbook = Workbook()
         sheet = workbook.active
-        
-        # Write the header if the file doesn't exist
         sheet.append([
             'Merchant', 'Id', 'Brand ar', 'Brand en', 'Barcode', 'Item Name AR', 
-            'Item Name EN', 'Category', 'Parent Category', 'Price before', 
-            'Price after', 'Offer start date', 'Offer end date', 'Url', 
-            'Picture', 'Type', 'Crawled on'
+            'Item Name EN', 'Category one EN', 'Category two EN', 'Category three EN', 
+            'Category four EN', 'Category five EN', 'Category six EN', 'Category seven EN',
+            'Category one AR', 'Category two AR', 'Category three AR', 
+            'Category four AR', 'Category five AR', 'Category six AR', 'Category seven AR',
+            'Price before', 'Price after', 'Offer start date', 'Offer end date', 
+            'Url', 'Picture', 'Type', 'Crawled on'
         ])
 
-    # Writing data into Excel
     sheet.append([
-        'Carrefour',             # Merchant
-        product_id,              # Id
-        brand_name_in_arabic,    # Brand ar 
-        brand_name_in_english,   # Brand en
-        product_barcode,         # Barcode
-        product_name_in_arabic,  # Item Name AR
-        product_name_in_english, # Item Name EN
-        child_category,          # Category
-        parent_category,         # Parent Category
-        price_before_offer,      # Price before offer
-        price_after_offer,       # Price after offer
-        offer_start_date,        # Offer start date
-        offer_end_data,          # Offer end date
-        url,                     # Product url
-        image_url,               # Product picture
-        'Website',               # Type of information source
-        datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # crawled on timestamp
+        product.merchant, product.product_id, product.brand_ar, product.brand_en, 
+        product.barcode, product.name_ar, product.name_en, product.category_one_eng, 
+        product.category_two_eng, product.category_three_eng, product.category_four_eng, 
+        product.category_five_eng, product.category_six_eng, product.category_seven_eng, 
+        product.category_one_ar, product.category_two_ar, product.category_three_ar, 
+        product.category_four_ar, product.category_five_ar, product.category_six_ar, 
+        product.category_seven_ar, product.price_before, product.price_after, 
+        product.offer_start_date, product.offer_end_date, product.url, product.image_url, 
+        product.source_type, product.crawled_on
     ])
-
-    # Save the workbook after each append
     workbook.save(output_file_name)
 
+# Function to process URLs and extract data from each URL and save to Excel
 def process_urls_and_save_to_excel(csv_file, output_file, driver):
-    
+    # Get today's date formatted as 'DD_MM_YYYY'
     todays_date = datetime.now().strftime('%d_%m_%Y')
+    # Construct the output Excel file name with today's date
     output_file_name = os.path.join(output_file, f"extract_carrefour_data_{todays_date}.xlsx")
-
+    merchant = 'Carrefour'  # Define the merchant name
+    source_type = 'Website'  # Define the source type
+    
     try:
+        # Open the CSV file containing URLs
         with open(csv_file, mode='r') as file:
-            reader = csv.DictReader(file)
+            reader = csv.DictReader(file)  # Read the CSV as a dictionary
             for row in reader:
-                url = row['URL']
+                url = row['URL']  # Extract URL from the current row
+                # Convert the URL to Arabic format
                 formatted_url_in_arabic = convert_url_to_arabic(url)
-                
-                # Extract product name in Arabic
                 driver.get(formatted_url_in_arabic)
+                # Navigate to the Arabic URL
+                # Extract product name in Arabic
                 product_name_in_arabic = extract_product_name_in_arabic(driver, formatted_url_in_arabic)
                 
                 # Extract brand name in Arabic
                 brand_name_in_arabic = extract_brand_name(driver)
-            
+                
+                # Extract categories in Arabic
+                categories_ar = extract_categories(driver)
+                
+                driver.get(url)  # Navigate to the English URL
                 # Extract product name in English
-                driver.get(url)
                 product_name_in_english = extract_product_name_in_english(driver)
                 
                 # Extract brand name in English
                 brand_name_in_english = extract_brand_name(driver)
                 
-                # Extract product id
+                # Extract product ID from the URL
                 product_id = extract_product_id(url)
                 
-                # Extract child category of product
-                child_category = extract_child_category(driver)
-                
-                # Extract parent category of product
-                parent_category = extract_parent_category(driver)
+                # Extract categories in English
+                categories_eng = extract_categories(driver)
                 
                 # Extract product barcode
                 product_barcode = extract_product_barcode(driver)
                 
-                # Extract the price for each URL before offer
+                # Extract price before the offer
                 price_before_offer = extract_product_price_before_offer(driver)
                 
-                # Extract the price for each url after offer if exists
+                # Extract price after the offer
                 price_after_offer = extract_product_price_after_offer(driver)
+                
+                # Extract offer start date
+                offer_start_date = datetime.now().strftime('%Y-%m-%d') if price_after_offer else ''
                 
                 # Extract offer end date
                 offer_end_data = extract_offer_end_date(driver)
-                
-                # Extract image url
+        
+                # Extract image URL
                 image_url = extract_image_url(driver)
                 
-                # Write to Excel directly for each URL
-                write_to_excel(output_file_name, product_id, brand_name_in_arabic, brand_name_in_english, product_barcode, child_category, parent_category, product_name_in_arabic, product_name_in_english, price_before_offer, price_after_offer, offer_end_data, image_url, url)
+                # Create a Product object with all extracted data
+                product = Product(
+                    merchant=merchant,
+                    product_id=product_id,
+                    brand_ar=brand_name_in_arabic,
+                    brand_en=brand_name_in_english,
+                    barcode=product_barcode,
+                    name_ar=product_name_in_arabic,
+                    name_en=product_name_in_english,
+                    category_one_eng=categories_eng[0] if len(categories_eng) > 0 else '', 
+                    category_two_eng=categories_eng[1] if len(categories_eng) > 1 else '', 
+                    category_three_eng=categories_eng[2] if len(categories_eng) > 2 else '', 
+                    category_four_eng=categories_eng[3] if len(categories_eng) > 3 else '', 
+                    category_five_eng=categories_eng[4] if len(categories_eng) > 4 else '', 
+                    category_six_eng=categories_eng[5] if len(categories_eng) > 5 else '', 
+                    category_seven_eng=categories_eng[6] if len(categories_eng) > 6 else '',
+                    category_one_ar=categories_ar[0] if len(categories_ar) > 0 else '', 
+                    category_two_ar=categories_ar[1] if len(categories_ar) > 1 else '', 
+                    category_three_ar=categories_ar[2] if len(categories_ar) > 2 else '', 
+                    category_four_ar=categories_ar[3] if len(categories_ar) > 3 else '', 
+                    category_five_ar=categories_ar[4] if len(categories_ar) > 4 else '', 
+                    category_six_ar=categories_ar[5] if len(categories_ar) > 5 else '', 
+                    category_seven_ar=categories_ar[6] if len(categories_ar) > 6 else '', 
+                    price_before=price_before_offer,
+                    price_after=price_after_offer,
+                    offer_start_date=offer_start_date,
+                    offer_end_date=offer_end_data,
+                    url=url,
+                    image_url=image_url,
+                    source_type=source_type,
+                    crawled_on=todays_date 
+                )
                 
-
-        print(f"Data successfully saved to {output_file_name}")
-        driver.quit()
+                # Write the product data to the output Excel file
+                write_to_excel(output_file_name, product)
     except Exception as e:
-        print(f"An error occurred during processing: {e}")
+        # Print any errors encountered during processing
+        print(f"Error processing URLs: {e}")
+
 
 # Call the function with the appropriate CSV file path and output directory
 driver = driver_intialize()
