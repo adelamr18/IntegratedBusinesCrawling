@@ -9,6 +9,8 @@ from openpyxl import Workbook, load_workbook
 import csv
 import re
 from datetime import datetime, timedelta
+input_csv_path = os.path.join('extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
+output_directory = os.path.join('extractions', 'Carrefour')
 
 def extract_brand_name(driver):
     try:
@@ -313,7 +315,5 @@ def process_urls_and_save_to_excel(csv_file, output_file, driver):
 
 # Call the function with the appropriate CSV file path and output directory
 driver = driver_intialize()
-input_csv_path = r'extractions/Carrefour/extract_carrefour_urls_19_09_2024.csv'
-output_directory = r'extractions/Carrefour'
 process_urls_and_save_to_excel(input_csv_path, output_directory, driver)
 
