@@ -125,30 +125,32 @@ def extract_product_name_in_english(driver):
         print(f"Error extracting product name: {e}")
         return "Product name not found"
 
-def extract_product_price_before_offer(driver):    
+def extract_product_price_before_offer(driver, price_after_offer):
     price_text = ""
 
     try:
-        # Try to find the price element with the offer
-        price_element_with_offer = driver.find_element(By.CSS_SELECTOR, '.css-1jh6byp')
-        price_text = price_element_with_offer.text
-        
-        if price_text:
+        # If an offer price exists, attempt to find the price before the offer
+        if price_after_offer:
             print('Offer price found:', price_text)
             price_element_with_offer_text = driver.find_element(By.CSS_SELECTOR, 'del.css-1bdwabt').text
             
             if 'Use code' in price_element_with_offer_text:
-                raise Exception("Promotional code found, exiting...")    
+                raise Exception("Promotional code found, exiting...")
             
             print('Price before offer:', price_element_with_offer_text)
             
             # Extract only the numeric part from the price before the offer
             match = re.search(r'\d+\.\d+', price_element_with_offer_text)
-            print(match.group(0))
-            return match.group(0) if match else "Price not found"
+            if match:
+                print(match.group(0))
+                return match.group(0)
+        # If `price_after_offer` is not provided, simulate an exception
+        raise Exception("Price after offer not found")
 
     except Exception as e:
         print("Offer price element not found or promotional code detected, trying to get regular price...")
+        
+        # Try to find the regular price
         try:
             price_element = driver.find_element(By.CSS_SELECTOR, '.css-17ctnp')
             price_text = price_element.text
@@ -159,9 +161,9 @@ def extract_product_price_before_offer(driver):
 
         except Exception:
             try:
-                price_element = driver.find_element(By.XPATH, "//h2[contains(text(), 'EGP')]")
+                # Fallback: Find price using an alternate CSS selector
+                price_element = driver.find_element(By.CSS_SELECTOR, ".css-17ctnp")
                 price_text = price_element.text
-                
                 # Extract the numeric part
                 match = re.search(r'\d+\.\d+', price_text)
                 return match.group(0) if match else "Price not found"
@@ -169,7 +171,6 @@ def extract_product_price_before_offer(driver):
             except Exception:
                 return "Price not found"
 
-    return "Price not found"
 
 def extract_product_price_after_offer(driver):
     try:
@@ -191,10 +192,10 @@ def write_to_excel(output_file_name, product):
         sheet = workbook.active
         sheet.append([
             'Merchant', 'Id', 'Brand ar', 'Brand en', 'Barcode', 'Item Name AR', 
-            'Item Name EN', 'Category one EN', 'Category two EN', 'Category three EN', 
-            'Category four EN', 'Category five EN', 'Category six EN', 'Category seven EN',
-            'Category one AR', 'Category two AR', 'Category three AR', 
-            'Category four AR', 'Category five AR', 'Category six AR', 'Category seven AR',
+            'Item Name EN', 'Category 1 EN', 'Category 2 EN', 'Category 3 EN', 
+            'Category 4 EN', 'Category 5 EN', 'Category 6 EN', 'Category 7 EN',
+            'Category 1 AR', 'Category 2 AR', 'Category 3 AR', 
+            'Category 4 AR', 'Category 5 AR', 'Category 6 AR', 'Category 7 AR',
             'Price before', 'Price after', 'Offer start date', 'Offer end date', 
             'Url', 'Picture', 'Type', 'Crawled on'
         ])
