@@ -125,30 +125,32 @@ def extract_product_name_in_english(driver):
         print(f"Error extracting product name: {e}")
         return "Product name not found"
 
-def extract_product_price_before_offer(driver):    
+def extract_product_price_before_offer(driver, price_after_offer):
     price_text = ""
 
     try:
-        # Try to find the price element with the offer
-        price_element_with_offer = driver.find_element(By.CSS_SELECTOR, '.css-1jh6byp')
-        price_text = price_element_with_offer.text
-        
-        if price_text:
+        # If an offer price exists, find the price before the offer
+        if price_after_offer:
             print('Offer price found:', price_text)
             price_element_with_offer_text = driver.find_element(By.CSS_SELECTOR, 'del.css-1bdwabt').text
             
             if 'Use code' in price_element_with_offer_text:
-                raise Exception("Promotional code found, exiting...")    
+                raise Exception("Promotional code found, exiting...")
             
             print('Price before offer:', price_element_with_offer_text)
             
             # Extract only the numeric part from the price before the offer
             match = re.search(r'\d+\.\d+', price_element_with_offer_text)
-            print(match.group(0))
-            return match.group(0) if match else "Price not found"
+            if match:
+                print(match.group(0))
+                return match.group(0)
+            else:
+                return "Price not found"
 
     except Exception as e:
         print("Offer price element not found or promotional code detected, trying to get regular price...")
+        
+        # Try to find the regular price
         try:
             price_element = driver.find_element(By.CSS_SELECTOR, '.css-17ctnp')
             price_text = price_element.text
@@ -159,6 +161,7 @@ def extract_product_price_before_offer(driver):
 
         except Exception:
             try:
+                # Fallback: Find price using XPath
                 price_element = driver.find_element(By.XPATH, "//h2[contains(text(), 'EGP')]")
                 price_text = price_element.text
                 
