@@ -9,7 +9,7 @@ from openpyxl import Workbook, load_workbook
 import csv
 import re
 from datetime import datetime, timedelta
-base_directory = 'C:\\Users\\Adel\\Desktop\\CarrefourAutomation'  # For Windows Adels machine
+base_directory = 'I:\\Web Crawler Project'  # For Windows Adels machine
 input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
 output_directory = os.path.join(base_directory, 'extractions', 'Carrefour')
 from models.Product import Product
@@ -191,10 +191,10 @@ def write_to_excel(output_file_name, product):
         sheet = workbook.active
         sheet.append([
             'Merchant', 'Id', 'Brand ar', 'Brand en', 'Barcode', 'Item Name AR', 
-            'Item Name EN', 'Category one EN', 'Category two EN', 'Category three EN', 
-            'Category four EN', 'Category five EN', 'Category six EN', 'Category seven EN',
-            'Category one AR', 'Category two AR', 'Category three AR', 
-            'Category four AR', 'Category five AR', 'Category six AR', 'Category seven AR',
+            'Item Name EN', 'Category 1 EN', 'Category 2 EN', 'Category 3 EN', 
+            'Category 4 EN', 'Category 5 EN', 'Category 6 EN', 'Category 7 EN',
+            'Category 1 AR', 'Category 2 AR', 'Category 3 AR', 
+            'Category 4 AR', 'Category 5 AR', 'Category 6 AR', 'Category 7 AR',
             'Price before', 'Price after', 'Offer start date', 'Offer end date', 
             'Url', 'Picture', 'Type', 'Crawled on'
         ])
