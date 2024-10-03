@@ -9,7 +9,7 @@ from openpyxl import Workbook, load_workbook
 import csv
 import re
 from datetime import datetime, timedelta
-base_directory = 'C:\\Users\\Adel\\Desktop\\CarrefourAutomation'  # For Windows Adels machine
+base_directory = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'  
 input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
 output_directory = os.path.join(base_directory, 'extractions', 'Carrefour')
 from models.Product import Product
