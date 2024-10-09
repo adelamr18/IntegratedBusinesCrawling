@@ -1,8 +1,9 @@
 from selenium.webdriver.common.by import By
 import sys
+import os
 from time import sleep
-from utils.helpers import driver_intialize
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils.helpers import driver_intialize
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -140,5 +141,4 @@ def run_specific_categories():
 driver = driver_intialize()
 
 #navigate_to_products_list(driver , "https://www.carrefouregypt.com/mafegy/en/baby-products/n/c/clp_FEGY1000000")
-run_specific_categories()
-#navigate_to_main_category(driver)
+navigate_to_main_category(driver)

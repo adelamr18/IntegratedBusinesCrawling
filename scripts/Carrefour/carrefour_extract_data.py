@@ -13,17 +13,27 @@ base_directory = 'I:\\Web Crawler Project'  # For Windows Adels machine
 input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
 output_directory = os.path.join(base_directory, 'extractions', 'Carrefour')
 from models.Product import Product
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 def extract_brand_name(driver):
     try:
-        brand_name = driver.find_element(By.CSS_SELECTOR, '.css-1nnke3o').text
+        # Increase wait time to handle delayed loading
+        brand_name_element = WebDriverWait(driver, 30).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, '.css-1nnke3o'))
+        )
         
-        if not brand_name:
-            return ""
-
+        # Extract text only if element is found
+        brand_name = brand_name_element.text.strip() if brand_name_element else ""
+        
+        # Log what was found for debugging
+        print(f"Brand name found: {brand_name}")
+        
         return brand_name
 
     except Exception as e:
+        # Log the error for debugging purposes
         print(f"Error extracting brand name: {e}")
         return ""
 
@@ -129,7 +139,7 @@ def extract_product_price_before_offer(driver, price_after_offer):
     price_text = ""
 
     try:
-        # If an offer price exists, find the price before the offer
+        # If an offer price exists, attempt to find the price before the offer
         if price_after_offer:
             print('Offer price found:', price_text)
             price_element_with_offer_text = driver.find_element(By.CSS_SELECTOR, 'del.css-1bdwabt').text
@@ -144,8 +154,8 @@ def extract_product_price_before_offer(driver, price_after_offer):
             if match:
                 print(match.group(0))
                 return match.group(0)
-            else:
-                return "Price not found"
+        # If `price_after_offer` is not provided, simulate an exception
+        raise Exception("Price after offer not found")
 
     except Exception as e:
         print("Offer price element not found or promotional code detected, trying to get regular price...")
@@ -161,18 +171,15 @@ def extract_product_price_before_offer(driver, price_after_offer):
 
         except Exception:
             try:
-                # Fallback: Find price using XPath
-                price_element = driver.find_element(By.XPATH, "//h2[contains(text(), 'EGP')]")
+                # Fallback: Find price using an alternate CSS selector
+                price_element = driver.find_element(By.CSS_SELECTOR, ".css-17ctnp")
                 price_text = price_element.text
-                
                 # Extract the numeric part
                 match = re.search(r'\d+\.\d+', price_text)
                 return match.group(0) if match else "Price not found"
                 
             except Exception:
                 return "Price not found"
-
-    return "Price not found"
 
 def extract_product_price_after_offer(driver):
     try:
@@ -258,12 +265,12 @@ def process_urls_and_save_to_excel(csv_file, output_file, driver):
                 
                 # Extract product barcode
                 product_barcode = extract_product_barcode(driver)
-                
-                # Extract price before the offer
-                price_before_offer = extract_product_price_before_offer(driver)
-                
+            
                 # Extract price after the offer
                 price_after_offer = extract_product_price_after_offer(driver)
+
+                # Extract price before the offer
+                price_before_offer = extract_product_price_before_offer(driver, price_after_offer)
                 
                 # Extract offer start date
                 offer_start_date = datetime.now().strftime('%Y-%m-%d') if price_after_offer else ''
@@ -275,6 +282,7 @@ def process_urls_and_save_to_excel(csv_file, output_file, driver):
                 image_url = extract_image_url(driver)
                 
                 # Create a Product object with all extracted data
+                print("Creating Data Row")
                 product = Product(
                     merchant=merchant,
                     product_id=product_id,
@@ -316,5 +324,6 @@ def process_urls_and_save_to_excel(csv_file, output_file, driver):
 
 # Call the function with the appropriate CSV file path and output directory
 driver = driver_intialize()
+driver.set_page_load_timeout(600)  # Set timeout to 600 seconds
 process_urls_and_save_to_excel(input_csv_path, output_directory, driver)
 
