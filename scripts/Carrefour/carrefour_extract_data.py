@@ -16,6 +16,7 @@ from models.Product import Product
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 def extract_brand_name(driver):
     try:
@@ -221,7 +222,6 @@ def write_to_excel(output_file_name, product):
         product.source_type, product.crawled_on
     ])
     workbook.save(output_file_name)
-
 # Function to process URLs and extract data from each URL and save to Excel
 def process_urls_and_save_to_excel(csv_file, output_file, driver):
     # Get today's date formatted as 'DD_MM_YYYY'
@@ -231,92 +231,107 @@ def process_urls_and_save_to_excel(csv_file, output_file, driver):
     merchant = 'Carrefour'  # Define the merchant name
     source_type = 'Website'  # Define the source type
     
+    faulty_urls = []  # List to store faulty URLs
+    
     try:
         # Open the CSV file containing URLs
         with open(csv_file, mode='r') as file:
             reader = csv.DictReader(file)  # Read the CSV as a dictionary
             for row in reader:
                 url = row['URL']  # Extract URL from the current row
-                # Convert the URL to Arabic format
-                formatted_url_in_arabic = convert_url_to_arabic(url)
-                driver.get(formatted_url_in_arabic)
-                # Navigate to the Arabic URL
-                # Extract product name in Arabic
-                product_name_in_arabic = extract_product_name_in_arabic(driver, formatted_url_in_arabic)
-                
-                # Extract brand name in Arabic
-                brand_name_in_arabic = extract_brand_name(driver)
-                
-                # Extract categories in Arabic
-                categories_ar = extract_categories(driver)
-                
-                driver.get(url)  # Navigate to the English URL
-                # Extract product name in English
-                product_name_in_english = extract_product_name_in_english(driver)
-                
-                # Extract brand name in English
-                brand_name_in_english = extract_brand_name(driver)
-                
-                # Extract product ID from the URL
-                product_id = extract_product_id(url)
-                
-                # Extract categories in English
-                categories_eng = extract_categories(driver)
-                
-                # Extract product barcode
-                product_barcode = extract_product_barcode(driver)
-            
-                # Extract price after the offer
-                price_after_offer = extract_product_price_after_offer(driver)
 
-                # Extract price before the offer
-                price_before_offer = extract_product_price_before_offer(driver, price_after_offer)
+                # Skip faulty URLs
+                if url in faulty_urls:
+                    print(f"Skipping faulty URL: {url}")
+                    continue
                 
-                # Extract offer start date
-                offer_start_date = datetime.now().strftime('%Y-%m-%d') if price_after_offer else ''
+                try:
+                    # Convert the URL to Arabic format
+                    formatted_url_in_arabic = convert_url_to_arabic(url)
+                    driver.get(formatted_url_in_arabic)
+                    # Navigate to the Arabic URL
+                    # Extract product name in Arabic
+                    product_name_in_arabic = extract_product_name_in_arabic(driver, formatted_url_in_arabic)
+                    
+                    # Extract brand name in Arabic
+                    brand_name_in_arabic = extract_brand_name(driver)
+                    
+                    # Extract categories in Arabic
+                    categories_ar = extract_categories(driver)
+                    
+                    driver.get(url)  # Navigate to the English URL
+                    # Extract product name in English
+                    product_name_in_english = extract_product_name_in_english(driver)
+                    
+                    # Extract brand name in English
+                    brand_name_in_english = extract_brand_name(driver)
+                    
+                    # Extract product ID from the URL
+                    product_id = extract_product_id(url)
+                    
+                    # Extract categories in English
+                    categories_eng = extract_categories(driver)
+                    
+                    # Extract product barcode
+                    product_barcode = extract_product_barcode(driver)
                 
-                # Extract offer end date
-                offer_end_data = extract_offer_end_date(driver)
-        
-                # Extract image URL
-                image_url = extract_image_url(driver)
-                
-                # Create a Product object with all extracted data
-                print("Creating Data Row")
-                product = Product(
-                    merchant=merchant,
-                    product_id=product_id,
-                    brand_ar=brand_name_in_arabic,
-                    brand_en=brand_name_in_english,
-                    barcode=product_barcode,
-                    name_ar=product_name_in_arabic,
-                    name_en=product_name_in_english,
-                    category_one_eng=categories_eng[0] if len(categories_eng) > 0 else '', 
-                    category_two_eng=categories_eng[1] if len(categories_eng) > 1 else '', 
-                    category_three_eng=categories_eng[2] if len(categories_eng) > 2 else '', 
-                    category_four_eng=categories_eng[3] if len(categories_eng) > 3 else '', 
-                    category_five_eng=categories_eng[4] if len(categories_eng) > 4 else '', 
-                    category_six_eng=categories_eng[5] if len(categories_eng) > 5 else '', 
-                    category_seven_eng=categories_eng[6] if len(categories_eng) > 6 else '',
-                    category_one_ar=categories_ar[0] if len(categories_ar) > 0 else '', 
-                    category_two_ar=categories_ar[1] if len(categories_ar) > 1 else '', 
-                    category_three_ar=categories_ar[2] if len(categories_ar) > 2 else '', 
-                    category_four_ar=categories_ar[3] if len(categories_ar) > 3 else '', 
-                    category_five_ar=categories_ar[4] if len(categories_ar) > 4 else '', 
-                    category_six_ar=categories_ar[5] if len(categories_ar) > 5 else '', 
-                    category_seven_ar=categories_ar[6] if len(categories_ar) > 6 else '', 
-                    price_before=price_before_offer,
-                    price_after=price_after_offer,
-                    offer_start_date=offer_start_date,
-                    offer_end_date=offer_end_data,
-                    url=url,
-                    image_url=image_url,
-                    source_type=source_type,
-                    crawled_on=todays_date 
-                )
-                
-                # Write the product data to the output Excel file
-                write_to_excel(output_file_name, product)
+                    # Extract price after the offer
+                    price_after_offer = extract_product_price_after_offer(driver)
+
+                    # Extract price before the offer
+                    price_before_offer = extract_product_price_before_offer(driver, price_after_offer)
+                    
+                    # Extract offer start date
+                    offer_start_date = datetime.now().strftime('%Y-%m-%d') if price_after_offer else ''
+                    
+                    # Extract offer end date
+                    offer_end_date = extract_offer_end_date(driver)
+            
+                    # Extract image URL
+                    image_url = extract_image_url(driver)
+                    
+                    # Create a Product object with all extracted data
+                    print("Creating Data Row")
+                    product = Product(
+                        merchant=merchant,
+                        product_id=product_id,
+                        brand_ar=brand_name_in_arabic,
+                        brand_en=brand_name_in_english,
+                        barcode=product_barcode,
+                        name_ar=product_name_in_arabic,
+                        name_en=product_name_in_english,
+                        category_one_eng=categories_eng[0] if len(categories_eng) > 0 else '', 
+                        category_two_eng=categories_eng[1] if len(categories_eng) > 1 else '', 
+                        category_three_eng=categories_eng[2] if len(categories_eng) > 2 else '', 
+                        category_four_eng=categories_eng[3] if len(categories_eng) > 3 else '', 
+                        category_five_eng=categories_eng[4] if len(categories_eng) > 4 else '', 
+                        category_six_eng=categories_eng[5] if len(categories_eng) > 5 else '', 
+                        category_seven_eng=categories_eng[6] if len(categories_eng) > 6 else '',
+                        category_one_ar=categories_ar[0] if len(categories_ar) > 0 else '', 
+                        category_two_ar=categories_ar[1] if len(categories_ar) > 1 else '', 
+                        category_three_ar=categories_ar[2] if len(categories_ar) > 2 else '', 
+                        category_four_ar=categories_ar[3] if len(categories_ar) > 3 else '', 
+                        category_five_ar=categories_ar[4] if len(categories_ar) > 4 else '', 
+                        category_six_ar=categories_ar[5] if len(categories_ar) > 5 else '', 
+                        category_seven_ar=categories_ar[6] if len(categories_ar) > 6 else '', 
+                        price_before=price_before_offer,
+                        price_after=price_after_offer,
+                        offer_start_date=offer_start_date,
+                        offer_end_date=offer_end_date,
+                        url=url,
+                        image_url=image_url,
+                        source_type=source_type,
+                        crawled_on=todays_date 
+                    )
+                    
+                    # Write the product data to the output Excel file
+                    write_to_excel(output_file_name, product)
+
+                except (TimeoutException, NoSuchElementException) as e:
+                    # Log the faulty URL and the error
+                    print(f"Error processing URL {url}: {e}")
+                    faulty_urls.append(url)  # Add to faulty URL list for skipping
+
     except Exception as e:
         # Print any errors encountered during processing
         print(f"Error processing URLs: {e}")
