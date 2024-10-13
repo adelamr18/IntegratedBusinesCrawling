@@ -1,62 +1,50 @@
-import re
-import os
+import requests
+from bs4 import BeautifulSoup
 import sys
-from datetime import datetime, timedelta
-from selenium.webdriver.common.by import By
+import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils.helpers import driver_intialize, convert_url_to_arabic
-from openpyxl import Workbook, load_workbook
-import csv
+import os
 import re
+import csv
 from datetime import datetime, timedelta
+from openpyxl import Workbook, load_workbook
+from concurrent.futures import ThreadPoolExecutor
 base_directory = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'  
 input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
 output_directory = os.path.join(base_directory, 'extractions', 'Carrefour')
 from models.Product import Product
+from utils.helpers import convert_url_to_arabic
 
-def extract_brand_name(driver):
+
+# Extract brand name using BeautifulSoup
+def extract_brand_name(soup):
     try:
-        brand_name = driver.find_element(By.CSS_SELECTOR, '.css-1nnke3o').text
-        
-        if not brand_name:
-            return ""
-
-        return brand_name
-
+        brand_name_element = soup.select_one('.css-1nnke3o')
+        return brand_name_element.text.strip() if brand_name_element else ""
     except Exception as e:
         print(f"Error extracting brand name: {e}")
         return ""
 
-def extract_offer_end_date(driver):
-    try:
-        # Find the second child element that contains the number of days
-        element = driver.find_element(By.CSS_SELECTOR, '.css-juexlj > span:nth-child(2)')
-        
-        # Extract the number of days from the text (e.g., "2 days")
-        days_text = element.text.strip()
-        
-        # Use regex to find the number in the text
-        match = re.search(r'\d+', days_text)
-        
-        if match:
-            # Convert the extracted number to an integer
-            days_to_add = int(match.group(0))
-            
-            # Calculate the new date by adding the number of days to today's date
-            calculated_date = datetime.now() + timedelta(days=days_to_add)
-            
-            # Return the calculated date in the format YYYY-MM-DD
-            return calculated_date.strftime('%Y-%m-%d')
-        
-        return ""  # Return empty string if no match found
 
+# Extract offer end date using BeautifulSoup
+def extract_offer_end_date(soup):
+    try:
+        element = soup.select_one('.css-juexlj > span:nth-child(2)')
+        days_text = element.text.strip()
+        print(days_text)
+        match = re.search(r'\d+', days_text)
+        if match:
+            days_to_add = int(match.group(0))
+            calculated_date = datetime.now() + timedelta(days=days_to_add)
+            return calculated_date.strftime('%Y-%m-%d')
+        return ""
     except Exception as e:
         return ""
 
-
-def extract_categories(driver):
+# Extract categories using BeautifulSoup
+def extract_categories(soup):
     try:
-        elements = driver.find_elements(By.CSS_SELECTOR, '.css-iamwo8')
+        elements = soup.select('.css-iamwo8')
         parent_categories = [element.text.strip() for element in elements if element.text.strip()]
         while len(parent_categories) < 7:
             parent_categories.append("")
@@ -65,123 +53,85 @@ def extract_categories(driver):
         print(f"Error extracting parent categories: {e}")
         return [""] * 7
 
-def extract_product_barcode(driver):
+
+# Function to extract product barcode using BeautifulSoup
+def extract_product_barcode(soup):
     try:
-         
-        element = driver.find_element(By.CSS_SELECTOR, "#__next > div.css-qo9h12 > main > div > div.css-9p8u88 > div:nth-child(2) > script")
-        barcode = element.get_attribute("data-flix-ean")
+        # Locate the specific script tag with the required attribute
+        element = soup.select_one("#__next > div.css-qo9h12 > main > div > div.css-9p8u88 > div:nth-child(2) > script")
+        
+        # Check if the script tag has the 'data-flix-ean' attribute
+        if element and 'data-flix-ean' in element.attrs:
+            barcode = element['data-flix-ean']
+            return barcode
+        else:
+            return "product barcode not found"
     
-        return barcode if barcode else "product barcode not found"
-    
-    except Exception:
+    except Exception as e:
+        print(f"Error extracting product barcode: {e}")
         return "product barcode not found"
 
-def extract_product_id(url):
-    driver.get(url)
-    match = re.search(r'/p/(\d+)', url)
-    
-    return match.group(1) if match else "id not found"
-
-def extract_product_name_in_arabic(driver, url):
-    driver.get(url)
-    
+# Extract product name in Arabic using BeautifulSoup
+def extract_product_name_in_arabic(soup):
     try:
-        product_name_ar = driver.find_element(By.CSS_SELECTOR, '.css-106scfp').text
-        
-        if not product_name_ar:
-            return "لم يتم العثور على اسم المنتج"
-
-        return product_name_ar
-    
-
+        product_name_ar = soup.select_one('.css-106scfp').text
+        return product_name_ar if product_name_ar else "لم يتم العثور على اسم المنتج"
     except Exception as e:
         print(f"Error extracting product name: {e}")
         return "لم يتم العثور على اسم المنتج"
 
-def extract_image_url(driver):
-    
-    try:
-        # Select the div with the specified class
-        image_div = driver.find_element(By.CSS_SELECTOR, 'div.css-1c2pck7 img')
-        
-        # Get the src attribute of the img tag
-        img_url = image_div.get_attribute('src')
-        return img_url
 
+# Extract image URL using BeautifulSoup
+def extract_image_url(soup):
+    try:
+        image_div = soup.select_one('div.css-1c2pck7 img')
+        img_url = image_div['src'] if image_div else "Image not found"
+        return img_url
     except Exception as e:
         print(f"Error extracting image URL: {e}")
-        return "Image not found"  
+        return "Image not found"
 
-def extract_product_name_in_english(driver):
+
+# Extract product name in English using BeautifulSoup
+def extract_product_name_in_english(soup):
     try:
-        product_name_ar = driver.find_element(By.CSS_SELECTOR, '.css-106scfp').text
-        
-        if not product_name_ar:
-            return "Product name not found"
-
-        return product_name_ar
-
+        product_name_en = soup.select_one('.css-106scfp').text
+        return product_name_en if product_name_en else "Product name not found"
     except Exception as e:
         print(f"Error extracting product name: {e}")
         return "Product name not found"
 
-def extract_product_price_before_offer(driver, price_after_offer):
-    price_text = ""
 
+# Extract product price before offer using BeautifulSoup
+def extract_product_price_before_offer(soup, price_after_offer):
     try:
-        # If an offer price exists, attempt to find the price before the offer
         if price_after_offer:
-            print('Offer price found:', price_text)
-            price_element_with_offer_text = driver.find_element(By.CSS_SELECTOR, 'del.css-1bdwabt').text
-            
+            price_element_with_offer_text = soup.select_one('del.css-1bdwabt').text
             if 'Use code' in price_element_with_offer_text:
                 raise Exception("Promotional code found, exiting...")
-            
-            print('Price before offer:', price_element_with_offer_text)
-            
-            # Extract only the numeric part from the price before the offer
             match = re.search(r'\d+\.\d+', price_element_with_offer_text)
-            if match:
-                print(match.group(0))
-                return match.group(0)
-        # If `price_after_offer` is not provided, simulate an exception
+            return match.group(0) if match else ""
         raise Exception("Price after offer not found")
-
     except Exception as e:
-        print("Offer price element not found or promotional code detected, trying to get regular price...")
-        
-        # Try to find the regular price
         try:
-            price_element = driver.find_element(By.CSS_SELECTOR, '.css-17ctnp')
-            price_text = price_element.text
-            
-            # Extract the numeric part
-            match = re.search(r'\d+\.\d+', price_text)
+            price_element = soup.select_one('.css-17ctnp')
+            match = re.search(r'\d+\.\d+', price_element.text) if price_element else None
             return match.group(0) if match else "Price not found"
-
-        except Exception:
-            try:
-                # Fallback: Find price using an alternate CSS selector
-                price_element = driver.find_element(By.CSS_SELECTOR, ".css-17ctnp")
-                price_text = price_element.text
-                # Extract the numeric part
-                match = re.search(r'\d+\.\d+', price_text)
-                return match.group(0) if match else "Price not found"
-                
-            except Exception:
-                return "Price not found"
+        except Exception as e:
+            return "Price not found"
 
 
-def extract_product_price_after_offer(driver):
+# Extract product price after offer using BeautifulSoup
+def extract_product_price_after_offer(soup):
     try:
-        price_element = driver.find_element(By.CSS_SELECTOR, '.css-1i90gmp')
-        price_text = price_element.text
-        match = re.search(r'\d+\.\d+', price_text)
+        price_element = soup.select_one('.css-1i90gmp')
+        match = re.search(r'\d+\.\d+', price_element.text) if price_element else None
         return match.group(0) if match else ""
     except Exception:
         return ""
 
-# Function to write the product data into an Excel file
+
+# Write product data to Excel file
 def write_to_excel(output_file_name, product):
     file_exists = os.path.isfile(output_file_name)
     if file_exists:
@@ -191,128 +141,130 @@ def write_to_excel(output_file_name, product):
         workbook = Workbook()
         sheet = workbook.active
         sheet.append([
-            'Merchant', 'Id', 'Brand ar', 'Brand en', 'Barcode', 'Item Name AR', 
-            'Item Name EN', 'Category 1 EN', 'Category 2 EN', 'Category 3 EN', 
+            'Merchant', 'Id', 'Brand ar', 'Brand en', 'Barcode', 'Item Name AR',
+            'Item Name EN', 'Category 1 EN', 'Category 2 EN', 'Category 3 EN',
             'Category 4 EN', 'Category 5 EN', 'Category 6 EN', 'Category 7 EN',
-            'Category 1 AR', 'Category 2 AR', 'Category 3 AR', 
+            'Category 1 AR', 'Category 2 AR', 'Category 3 AR',
             'Category 4 AR', 'Category 5 AR', 'Category 6 AR', 'Category 7 AR',
-            'Price before', 'Price after', 'Offer start date', 'Offer end date', 
+            'Price before', 'Price after', 'Offer start date', 'Offer end date',
             'Url', 'Picture', 'Type', 'Crawled on'
         ])
-
     sheet.append([
-        product.merchant, product.product_id, product.brand_ar, product.brand_en, 
-        product.barcode, product.name_ar, product.name_en, product.category_one_eng, 
-        product.category_two_eng, product.category_three_eng, product.category_four_eng, 
-        product.category_five_eng, product.category_six_eng, product.category_seven_eng, 
-        product.category_one_ar, product.category_two_ar, product.category_three_ar, 
-        product.category_four_ar, product.category_five_ar, product.category_six_ar, 
-        product.category_seven_ar, product.price_before, product.price_after, 
-        product.offer_start_date, product.offer_end_date, product.url, product.image_url, 
+        product.merchant, product.product_id, product.brand_ar, product.brand_en,
+        product.barcode, product.name_ar, product.name_en, product.category_one_eng,
+        product.category_two_eng, product.category_three_eng, product.category_four_eng,
+        product.category_five_eng, product.category_six_eng, product.category_seven_eng,
+        product.category_one_ar, product.category_two_ar, product.category_three_ar,
+        product.category_four_ar, product.category_five_ar, product.category_six_ar,
+        product.category_seven_ar, product.price_before, product.price_after,
+        product.offer_start_date, product.offer_end_date, product.url, product.image_url,
         product.source_type, product.crawled_on
     ])
     workbook.save(output_file_name)
 
-# Function to process URLs and extract data from each URL and save to Excel
-def process_urls_and_save_to_excel(csv_file, output_file, driver):
-    # Get today's date formatted as 'DD_MM_YYYY'
-    todays_date = datetime.now().strftime('%d_%m_%Y')
-    # Construct the output Excel file name with today's date
-    output_file_name = os.path.join(output_file, f"extract_carrefour_data_{todays_date}.xlsx")
-    merchant = 'Carrefour'  # Define the merchant name
-    source_type = 'Website'  # Define the source type
-    
+
+# Process each URL and extract product information
+def process_url(url, output_file_name, faulty_urls):
     try:
-        # Open the CSV file containing URLs
-        with open(csv_file, mode='r') as file:
-            reader = csv.DictReader(file)  # Read the CSV as a dictionary
-            for row in reader:
-                url = row['URL']  # Extract URL from the current row
-                # Convert the URL to Arabic format
-                formatted_url_in_arabic = convert_url_to_arabic(url)
-                driver.get(formatted_url_in_arabic)
-                # Navigate to the Arabic URL
-                # Extract product name in Arabic
-                product_name_in_arabic = extract_product_name_in_arabic(driver, formatted_url_in_arabic)
-                
-                # Extract brand name in Arabic
-                brand_name_in_arabic = extract_brand_name(driver)
-                
-                # Extract categories in Arabic
-                categories_ar = extract_categories(driver)
-                
-                driver.get(url)  # Navigate to the English URL
-                # Extract product name in English
-                product_name_in_english = extract_product_name_in_english(driver)
-                
-                # Extract brand name in English
-                brand_name_in_english = extract_brand_name(driver)
-                
-                # Extract product ID from the URL
-                product_id = extract_product_id(url)
-                
-                # Extract categories in English
-                categories_eng = extract_categories(driver)
-                
-                # Extract product barcode
-                product_barcode = extract_product_barcode(driver)
-                
-                # Extract price before the offer
-                price_before_offer = extract_product_price_before_offer(driver)
-                
-                # Extract price after the offer
-                price_after_offer = extract_product_price_after_offer(driver)
-                
-                # Extract offer start date
-                offer_start_date = datetime.now().strftime('%Y-%m-%d') if price_after_offer else ''
-                
-                # Extract offer end date
-                offer_end_data = extract_offer_end_date(driver)
+        url_in_arabic = convert_url_to_arabic(url)
+        ar_response = requests.get(url_in_arabic)
+        soup_ar = BeautifulSoup(ar_response.text, 'html.parser')
+        print(url_in_arabic, ar_response)
+
+        merchant = 'Carrefour'
+        source_type = 'Website'
+        todays_date = datetime.now().strftime('%d_%m_%Y')
+
+        product_name_in_arabic = extract_product_name_in_arabic(soup_ar)
+        brand_name_in_arabic = extract_brand_name(soup_ar)
+        categories_ar = extract_categories(soup_ar)
         
-                # Extract image URL
-                image_url = extract_image_url(driver)
-                
-                # Create a Product object with all extracted data
-                product = Product(
-                    merchant=merchant,
-                    product_id=product_id,
-                    brand_ar=brand_name_in_arabic,
-                    brand_en=brand_name_in_english,
-                    barcode=product_barcode,
-                    name_ar=product_name_in_arabic,
-                    name_en=product_name_in_english,
-                    category_one_eng=categories_eng[0] if len(categories_eng) > 0 else '', 
-                    category_two_eng=categories_eng[1] if len(categories_eng) > 1 else '', 
-                    category_three_eng=categories_eng[2] if len(categories_eng) > 2 else '', 
-                    category_four_eng=categories_eng[3] if len(categories_eng) > 3 else '', 
-                    category_five_eng=categories_eng[4] if len(categories_eng) > 4 else '', 
-                    category_six_eng=categories_eng[5] if len(categories_eng) > 5 else '', 
-                    category_seven_eng=categories_eng[6] if len(categories_eng) > 6 else '',
-                    category_one_ar=categories_ar[0] if len(categories_ar) > 0 else '', 
-                    category_two_ar=categories_ar[1] if len(categories_ar) > 1 else '', 
-                    category_three_ar=categories_ar[2] if len(categories_ar) > 2 else '', 
-                    category_four_ar=categories_ar[3] if len(categories_ar) > 3 else '', 
-                    category_five_ar=categories_ar[4] if len(categories_ar) > 4 else '', 
-                    category_six_ar=categories_ar[5] if len(categories_ar) > 5 else '', 
-                    category_seven_ar=categories_ar[6] if len(categories_ar) > 6 else '', 
-                    price_before=price_before_offer,
-                    price_after=price_after_offer,
-                    offer_start_date=offer_start_date,
-                    offer_end_date=offer_end_data,
-                    url=url,
-                    image_url=image_url,
-                    source_type=source_type,
-                    crawled_on=todays_date 
-                )
-                
-                # Write the product data to the output Excel file
-                write_to_excel(output_file_name, product)
+        eng_response = requests.get(url)
+        soup = BeautifulSoup(eng_response.text, 'html.parser')
+        
+        product_name_in_english = extract_product_name_in_english(soup)
+        brand_name_in_english = extract_brand_name(soup)
+        product_id = re.search(r'/p/(\d+)', url).group(1) if re.search(r'/p/(\d+)', url) else "id not found"
+        categories_eng = extract_categories(soup)
+        product_barcode = extract_product_barcode(soup)
+        price_after_offer = extract_product_price_after_offer(soup)
+        price_before_offer = extract_product_price_before_offer(soup, price_after_offer)
+        offer_start_date = datetime.now().strftime('%Y-%m-%d') if price_after_offer else ''
+        offer_end_date = extract_offer_end_date(soup)
+        image_url = extract_image_url(soup)
+
+        product = Product(
+            merchant=merchant,
+            product_id=product_id,
+            brand_ar=brand_name_in_arabic,
+            brand_en=brand_name_in_english,
+            barcode=product_barcode,
+            name_ar=product_name_in_arabic,
+            name_en=product_name_in_english,
+            category_one_eng=categories_eng[0] if len(categories_eng) > 0 else '',
+            category_two_eng=categories_eng[1] if len(categories_eng) > 1 else '',
+            category_three_eng=categories_eng[2] if len(categories_eng) > 2 else '',
+            category_four_eng=categories_eng[3] if len(categories_eng) > 3 else '',
+            category_five_eng=categories_eng[4] if len(categories_eng) > 4 else '',
+            category_six_eng=categories_eng[5] if len(categories_eng) > 5 else '',
+            category_seven_eng=categories_eng[6] if len(categories_eng) > 6 else '',
+            category_one_ar=categories_ar[0] if len(categories_ar) > 0 else '',
+            category_two_ar=categories_ar[1] if len(categories_ar) > 1 else '',
+            category_three_ar=categories_ar[2] if len(categories_ar) > 2 else '',
+            category_four_ar=categories_ar[3] if len(categories_ar) > 3 else '',
+            category_five_ar=categories_ar[4] if len(categories_ar) > 4 else '',
+            category_six_ar=categories_ar[5] if len(categories_ar) > 5 else '',
+            category_seven_ar=categories_ar[6] if len(categories_ar) > 6 else '',
+            price_before=price_before_offer,
+            price_after=price_after_offer,
+            offer_start_date=offer_start_date,
+            offer_end_date=offer_end_date,
+            url=url,
+            image_url=image_url,
+            source_type=source_type,
+            crawled_on=todays_date
+        )
+
+        write_to_excel(output_file_name, product)
+
     except Exception as e:
-        # Print any errors encountered during processing
-        print(f"Error processing URLs: {e}")
+        print(f"Error processing URL {url}: {e}")
+        faulty_urls.append(url)
 
 
-# Call the function with the appropriate CSV file path and output directory
-driver = driver_intialize()
-process_urls_and_save_to_excel(input_csv_path, output_directory, driver)
+# Read URLs from the CSV file
+def read_urls_from_csv(csv_file_path):
+    urls = []
+    try:
+        with open(csv_file_path, mode='r', newline='', encoding='utf-8') as file:
+            reader = csv.DictReader(file)  # Read the CSV as a dictionary
+            urls = [row['URL'] for row in reader if 'URL' in row and row['URL']]  # Ensure 'URL' column exists and is not empty
+    except Exception as e:
+        print(f"Error reading CSV file: {e}")
+    return urls
+
+
+def process_urls_and_save_to_excel(input_csv_path, output_directory):
+    output_file_name = os.path.join(output_directory, 'carrefour_products.xlsx')
+    faulty_urls_file = os.path.join(output_directory, 'faulty_urls.txt')
+    
+    # Read URLs from CSV
+    urls = read_urls_from_csv(input_csv_path)
+
+    # List to store faulty URLs
+    faulty_urls = []
+
+    # Process each URL sequentially
+    for url in urls:
+        print(url)
+        process_url(url, output_file_name, faulty_urls)
+
+    # Save faulty URLs to a file if any
+    if faulty_urls:
+        with open(faulty_urls_file, 'w') as f:
+            for url in faulty_urls:
+                f.write(f"{url}\n")
+        print(f"Faulty URLs saved to {faulty_urls_file}")
+
+process_urls_and_save_to_excel(input_csv_path, output_directory)
 

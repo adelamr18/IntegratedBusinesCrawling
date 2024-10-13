@@ -8,11 +8,13 @@ from datetime import datetime
 from scripts.models.Product import Product
 from utils.helpers import write_to_excel
 import requests
+from openpyxl import load_workbook, Workbook
 
 def extract_products_per_category(output_file):
     # Define all categories
     categories = [
-        'Mjg5NA==',  # Seoudi products, Fruits and Vegetables
+
+    'Mjg5NA==',  # Seoudi products, Fruits and Vegetables
         'NTIy',      # Meat and Poultry
         'MjU=',      # Dairy, Eggs and Cheese
         'NTMx',      # Cold Cuts & Deli
@@ -352,6 +354,44 @@ def fetch_product_details(slug, output_file):
 
 def extract_all_seoudi_product_data(output_file):
     extract_products_per_category(output_file)
+    
+def merge_excel_files(file1, file2, file3, output_file):
+    # Create a new workbook for the merged output
+    output_wb = Workbook()
+    output_ws = output_wb.active
+
+    # Function to append data from each workbook
+    def append_data_from_file(file_path, skip_first_row=False):
+        wb = load_workbook(file_path)
+        ws = wb.active
+        for i, row in enumerate(ws.iter_rows(values_only=True)):
+            # Skip the first row for the second and third files
+            if i == 0 and skip_first_row:
+                continue
+            output_ws.append(row)
+
+    # Merge the first file without skipping any rows
+    append_data_from_file(file1, skip_first_row=False)
+
+    # Merge the second and third files, skipping the first row
+    append_data_from_file(file2, skip_first_row=True)
+    append_data_from_file(file3, skip_first_row=True)
+
+    # Save the merged workbook
+    output_wb.save(output_file)
+
+# Paths to the input Excel files
+file1 = os.path.join(output_directory, 'seoudi_extract_data_10_10_2024.xlsx')
+file2 = os.path.join(output_directory, 'seoudi_extract_data_11_10_2024.xlsx')
+file3 = os.path.join(output_directory, 'seoudi_extract_data_12_10_2024.xlsx')
+
+# Output file path
+output_file = os.path.join(output_directory, 'seoudi_all_products.xlsx')
+
+# Merge the files
+merge_excel_files(file1, file2, file3, output_file)
+
+print(f"Files merged and saved to {output_file}")    
 
 # Call the function to extract data
-extract_all_seoudi_product_data(output_directory)
+# extract_all_seoudi_product_data(output_directory)
