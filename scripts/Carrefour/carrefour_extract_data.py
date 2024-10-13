@@ -8,7 +8,6 @@ import re
 import csv
 from datetime import datetime, timedelta
 from openpyxl import Workbook, load_workbook
-from concurrent.futures import ThreadPoolExecutor
 base_directory = 'I:\\Web Crawler Project'
 input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
 output_directory = os.path.join(base_directory, 'extractions', 'Carrefour')
