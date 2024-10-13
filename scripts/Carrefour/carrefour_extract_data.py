@@ -1,74 +1,49 @@
-import re
-import os
+import requests
+from bs4 import BeautifulSoup
 import sys
-from datetime import datetime, timedelta
-from selenium.webdriver.common.by import By
+import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils.helpers import driver_intialize, convert_url_to_arabic
-from openpyxl import Workbook, load_workbook
-import csv
+import os
 import re
+import csv
 from datetime import datetime, timedelta
-base_directory = 'I:\\Web Crawler Project'  # For Windows Adels machine
+from openpyxl import Workbook, load_workbook
+from concurrent.futures import ThreadPoolExecutor
+base_directory = 'I:\\Web Crawler Project'
 input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
 output_directory = os.path.join(base_directory, 'extractions', 'Carrefour')
 from models.Product import Product
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from concurrent.futures import ThreadPoolExecutor
+from utils.helpers import convert_url_to_arabic
 
-def extract_brand_name(driver):
+
+# Extract brand name using BeautifulSoup
+def extract_brand_name(soup):
     try:
-        # Increase wait time to handle delayed loading
-        brand_name_element = WebDriverWait(driver, 30).until(
-            EC.visibility_of_element_located((By.CSS_SELECTOR, '.css-1nnke3o'))
-        )
-        
-        # Extract text only if element is found
-        brand_name = brand_name_element.text.strip() if brand_name_element else ""
-        
-        # Log what was found for debugging
-        print(f"Brand name found: {brand_name}")
-        
-        return brand_name
-
+        brand_name_element = soup.select_one('.css-1nnke3o')
+        return brand_name_element.text.strip() if brand_name_element else ""
     except Exception as e:
-        # Log the error for debugging purposes
         print(f"Error extracting brand name: {e}")
         return ""
 
-def extract_offer_end_date(driver):
-    try:
-        # Find the second child element that contains the number of days
-        element = driver.find_element(By.CSS_SELECTOR, '.css-juexlj > span:nth-child(2)')
-        
-        # Extract the number of days from the text (e.g., "2 days")
-        days_text = element.text.strip()
-        
-        # Use regex to find the number in the text
-        match = re.search(r'\d+', days_text)
-        
-        if match:
-            # Convert the extracted number to an integer
-            days_to_add = int(match.group(0))
-            
-            # Calculate the new date by adding the number of days to today's date
-            calculated_date = datetime.now() + timedelta(days=days_to_add)
-            
-            # Return the calculated date in the format YYYY-MM-DD
-            return calculated_date.strftime('%Y-%m-%d')
-        
-        return ""  # Return empty string if no match found
 
+# Extract offer end date using BeautifulSoup
+def extract_offer_end_date(soup):
+    try:
+        element = soup.select_one('.css-juexlj > span:nth-child(2)')
+        days_text = element.text.strip()
+        match = re.search(r'\d+', days_text)
+        if match:
+            days_to_add = int(match.group(0))
+            calculated_date = datetime.now() + timedelta(days=days_to_add)
+            return calculated_date.strftime('%Y-%m-%d')
+        return ""
     except Exception as e:
         return ""
 
-
-def extract_categories(driver):
+# Extract categories using BeautifulSoup
+def extract_categories(soup):
     try:
-        elements = driver.find_elements(By.CSS_SELECTOR, '.css-iamwo8')
+        elements = soup.select('.css-iamwo8')
         parent_categories = [element.text.strip() for element in elements if element.text.strip()]
         while len(parent_categories) < 7:
             parent_categories.append("")
@@ -77,122 +52,97 @@ def extract_categories(driver):
         print(f"Error extracting parent categories: {e}")
         return [""] * 7
 
-def extract_product_barcode(driver):
+
+import json
+
+# Function to extract product barcode using BeautifulSoup
+import json
+from bs4 import BeautifulSoup
+
+# Function to extract product barcode using BeautifulSoup
+from bs4 import BeautifulSoup
+
+def extract_product_barcode(soup):
     try:
-         
-        element = driver.find_element(By.CSS_SELECTOR, "#__next > div.css-qo9h12 > main > div > div.css-9p8u88 > div:nth-child(2) > script")
-        barcode = element.get_attribute("data-flix-ean")
-    
-        return barcode if barcode else "product barcode not found"
-    
-    except Exception:
+        # Locate the specific script tag with id __NEXT_DATA__ and type application/json
+        script_tag = soup.find("script", {"id": "__NEXT_DATA__", "type": "application/json"})
+        # Check if the script tag is found
+        if script_tag:
+            # Load the script content as a JSON object
+            script_data = json.loads(script_tag.string)
+            
+            # Navigate the JSON structure to extract the 'ean'
+            ean = script_data['props']['initialProps']['pageProps']['initialData']['products'][0]['attributes']['ean']
+            
+            return ean if ean else "product barcode not found"
+        else:
+            return "Script tag not found"
+
+    except Exception as e:
+        print(f"Error extracting product barcode: {e}")
         return "product barcode not found"
 
-def extract_product_id(url):
-    driver.get(url)
-    match = re.search(r'/p/(\d+)', url)
-    
-    return match.group(1) if match else "id not found"
-
-def extract_product_name_in_arabic(driver, url):
-    driver.get(url)
-    
+# Extract product name in Arabic using BeautifulSoup
+def extract_product_name_in_arabic(soup):
     try:
-        product_name_ar = driver.find_element(By.CSS_SELECTOR, '.css-106scfp').text
-        
-        if not product_name_ar:
-            return "لم يتم العثور على اسم المنتج"
-
-        return product_name_ar
-    
-
+        product_name_ar = soup.select_one('.css-106scfp').text
+        return product_name_ar if product_name_ar else "لم يتم العثور على اسم المنتج"
     except Exception as e:
         print(f"Error extracting product name: {e}")
         return "لم يتم العثور على اسم المنتج"
 
-def extract_image_url(driver):
-    
-    try:
-        # Select the div with the specified class
-        image_div = driver.find_element(By.CSS_SELECTOR, 'div.css-1c2pck7 img')
-        
-        # Get the src attribute of the img tag
-        img_url = image_div.get_attribute('src')
-        return img_url
 
+# Extract image URL using BeautifulSoup
+def extract_image_url(soup):
+    try:
+        image_div = soup.select_one('div.css-1c2pck7 img')
+        img_url = image_div['src'] if image_div else "Image not found"
+        return img_url
     except Exception as e:
         print(f"Error extracting image URL: {e}")
-        return "Image not found"  
+        return "Image not found"
 
-def extract_product_name_in_english(driver):
+
+# Extract product name in English using BeautifulSoup
+def extract_product_name_in_english(soup):
     try:
-        product_name_ar = driver.find_element(By.CSS_SELECTOR, '.css-106scfp').text
-        
-        if not product_name_ar:
-            return "Product name not found"
-
-        return product_name_ar
-
+        product_name_en = soup.select_one('.css-106scfp').text
+        return product_name_en if product_name_en else "Product name not found"
     except Exception as e:
         print(f"Error extracting product name: {e}")
         return "Product name not found"
 
-def extract_product_price_before_offer(driver, price_after_offer):
-    price_text = ""
 
+# Extract product price before offer using BeautifulSoup
+def extract_product_price_before_offer(soup, price_after_offer):
     try:
-        # If an offer price exists, attempt to find the price before the offer
         if price_after_offer:
-            print('Offer price found:', price_text)
-            price_element_with_offer_text = driver.find_element(By.CSS_SELECTOR, 'del.css-1bdwabt').text
-            
+            price_element_with_offer_text = soup.select_one('del.css-1bdwabt').text
             if 'Use code' in price_element_with_offer_text:
                 raise Exception("Promotional code found, exiting...")
-            
-            print('Price before offer:', price_element_with_offer_text)
-            
-            # Extract only the numeric part from the price before the offer
             match = re.search(r'\d+\.\d+', price_element_with_offer_text)
-            if match:
-                print(match.group(0))
-                return match.group(0)
-        # If `price_after_offer` is not provided, simulate an exception
+            return match.group(0) if match else ""
         raise Exception("Price after offer not found")
-
     except Exception as e:
-        print("Offer price element not found or promotional code detected, trying to get regular price...")
-        
-        # Try to find the regular price
         try:
-            price_element = driver.find_element(By.CSS_SELECTOR, '.css-17ctnp')
-            price_text = price_element.text
-            
-            # Extract the numeric part
-            match = re.search(r'\d+\.\d+', price_text)
+            price_element = soup.select_one('.css-17ctnp')
+            match = re.search(r'\d+\.\d+', price_element.text) if price_element else None
             return match.group(0) if match else "Price not found"
+        except Exception as e:
+            return "Price not found"
 
-        except Exception:
-            try:
-                # Fallback: Find price using an alternate CSS selector
-                price_element = driver.find_element(By.CSS_SELECTOR, ".css-17ctnp")
-                price_text = price_element.text
-                # Extract the numeric part
-                match = re.search(r'\d+\.\d+', price_text)
-                return match.group(0) if match else "Price not found"
-                
-            except Exception:
-                return "Price not found"
 
-def extract_product_price_after_offer(driver):
+# Extract product price after offer using BeautifulSoup
+def extract_product_price_after_offer(soup):
     try:
-        price_element = driver.find_element(By.CSS_SELECTOR, '.css-1i90gmp')
-        price_text = price_element.text
-        match = re.search(r'\d+\.\d+', price_text)
+        price_element = soup.select_one('.css-1i90gmp')
+        match = re.search(r'\d+\.\d+', price_element.text) if price_element else None
         return match.group(0) if match else ""
     except Exception:
         return ""
 
-# Function to write the product data into an Excel file
+
+# Write product data to Excel file
 def write_to_excel(output_file_name, product):
     file_exists = os.path.isfile(output_file_name)
     if file_exists:
@@ -202,61 +152,67 @@ def write_to_excel(output_file_name, product):
         workbook = Workbook()
         sheet = workbook.active
         sheet.append([
-            'Merchant', 'Id', 'Brand ar', 'Brand en', 'Barcode', 'Item Name AR', 
-            'Item Name EN', 'Category 1 EN', 'Category 2 EN', 'Category 3 EN', 
+            'Merchant', 'Id', 'Brand ar', 'Brand en', 'Barcode', 'Item Name AR',
+            'Item Name EN', 'Category 1 EN', 'Category 2 EN', 'Category 3 EN',
             'Category 4 EN', 'Category 5 EN', 'Category 6 EN', 'Category 7 EN',
-            'Category 1 AR', 'Category 2 AR', 'Category 3 AR', 
+            'Category 1 AR', 'Category 2 AR', 'Category 3 AR',
             'Category 4 AR', 'Category 5 AR', 'Category 6 AR', 'Category 7 AR',
-            'Price before', 'Price after', 'Offer start date', 'Offer end date', 
+            'Price before', 'Price after', 'Offer start date', 'Offer end date',
             'Url', 'Picture', 'Type', 'Crawled on'
         ])
-
     sheet.append([
-        product.merchant, product.product_id, product.brand_ar, product.brand_en, 
-        product.barcode, product.name_ar, product.name_en, product.category_one_eng, 
-        product.category_two_eng, product.category_three_eng, product.category_four_eng, 
-        product.category_five_eng, product.category_six_eng, product.category_seven_eng, 
-        product.category_one_ar, product.category_two_ar, product.category_three_ar, 
-        product.category_four_ar, product.category_five_ar, product.category_six_ar, 
-        product.category_seven_ar, product.price_before, product.price_after, 
-        product.offer_start_date, product.offer_end_date, product.url, product.image_url, 
+        product.merchant, product.product_id, product.brand_ar, product.brand_en,
+        product.barcode, product.name_ar, product.name_en, product.category_one_eng,
+        product.category_two_eng, product.category_three_eng, product.category_four_eng,
+        product.category_five_eng, product.category_six_eng, product.category_seven_eng,
+        product.category_one_ar, product.category_two_ar, product.category_three_ar,
+        product.category_four_ar, product.category_five_ar, product.category_six_ar,
+        product.category_seven_ar, product.price_before, product.price_after,
+        product.offer_start_date, product.offer_end_date, product.url, product.image_url,
         product.source_type, product.crawled_on
     ])
     workbook.save(output_file_name)
-    
-# Function to process each URL and extract product information
-def process_url(url, driver, output_file_name, faulty_urls):
-    if url in faulty_urls:
-        print(f"Skipping faulty URL: {url}")
-        return  # Skip faulty URLs
 
-    merchant = 'Carrefour'  # Define the merchant name
-    source_type = 'Website'  # Define the source type
-    todays_date = datetime.now().strftime('%d_%m_%Y')
-
+def process_url(url, output_file_name, faulty_urls):
     try:
-        # Convert the URL to Arabic format
-        formatted_url_in_arabic = convert_url_to_arabic(url)
-        driver.get(formatted_url_in_arabic)
+        url_in_arabic = convert_url_to_arabic(url)
+        ar_response = requests.get(url_in_arabic)
+        
+        # Check if the response is HTML
+        if "text/html" not in ar_response.headers.get('Content-Type', ''):
+            raise Exception(f"Invalid content type: {ar_response.headers['Content-Type']}")
 
-        # Extract product name in Arabic
-        product_name_in_arabic = extract_product_name_in_arabic(driver, formatted_url_in_arabic)
-        brand_name_in_arabic = extract_brand_name(driver)
-        categories_ar = extract_categories(driver)
+        soup_ar = BeautifulSoup(ar_response.text, 'html.parser')
 
-        driver.get(url)  # Navigate to the English URL
-        product_name_in_english = extract_product_name_in_english(driver)
-        brand_name_in_english = extract_brand_name(driver)
-        product_id = extract_product_id(url)
-        categories_eng = extract_categories(driver)
-        product_barcode = extract_product_barcode(driver)
-        price_after_offer = extract_product_price_after_offer(driver)
-        price_before_offer = extract_product_price_before_offer(driver, price_after_offer)
+        merchant = 'Carrefour'
+        source_type = 'Website'
+        todays_date = datetime.now().strftime('%d_%m_%Y')
+
+        product_name_in_arabic = extract_product_name_in_arabic(soup_ar)
+        brand_name_in_arabic = extract_brand_name(soup_ar)
+        categories_ar = extract_categories(soup_ar)
+
+        eng_response = requests.get(url)
+        
+        # Check content type for English response
+        if "text/html" not in eng_response.headers.get('Content-Type', ''):
+            raise Exception(f"Invalid content type: {eng_response.headers['Content-Type']}")
+
+        soup = BeautifulSoup(eng_response.text, 'html.parser')
+
+        # Extract the rest of the product data as before...
+        product_name_in_english = extract_product_name_in_english(soup)
+        print(product_name_in_english)
+        brand_name_in_english = extract_brand_name(soup)
+        product_id = re.search(r'/p/(\d+)', url).group(1) if re.search(r'/p/(\d+)', url) else "id not found"
+        categories_eng = extract_categories(soup)
+        product_barcode = extract_product_barcode(soup)
+        price_after_offer = extract_product_price_after_offer(soup)
+        price_before_offer = extract_product_price_before_offer(soup, price_after_offer)
         offer_start_date = datetime.now().strftime('%Y-%m-%d') if price_after_offer else ''
-        offer_end_date = extract_offer_end_date(driver)
-        image_url = extract_image_url(driver)
+        offer_end_date = extract_offer_end_date(soup)
+        image_url = extract_image_url(soup)
 
-        # Create a Product object with all extracted data
         product = Product(
             merchant=merchant,
             product_id=product_id,
@@ -289,52 +245,45 @@ def process_url(url, driver, output_file_name, faulty_urls):
             crawled_on=todays_date
         )
 
-        # Write the product data to the output Excel file
         write_to_excel(output_file_name, product)
 
-    except (TimeoutException, NoSuchElementException) as e:
-        print(f"Error processing URL {url}: {e}")
-        faulty_urls.append(url)  # Add the URL to the faulty URL list
-
-# Function to process URLs and extract data from each URL and save to Excel
-def process_urls_and_save_to_excel(csv_file, output_file, driver, max_workers=10):
-    # Get today's date formatted as 'DD_MM_YYYY'
-    todays_date = datetime.now().strftime('%d_%m_%Y')
-    output_file_name = os.path.join(output_file, f"extract_carrefour_data_{todays_date}.xlsx")
-    
-    faulty_urls = []  # List to store faulty URLs
-
-    try:
-        # Open the CSV file containing URLs
-        with open(csv_file, mode='r') as file:
-            reader = csv.DictReader(file)  # Read the CSV as a dictionary
-            urls = [row['URL'] for row in reader]  # Extract URLs from each row
-
-            # Use ThreadPoolExecutor to process multiple URLs concurrently
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = [executor.submit(process_url, url, driver, output_file_name, faulty_urls) for url in urls]
-                
-                # Wait for all threads to complete
-                for future in futures:
-                    try:
-                        future.result()  # Retrieve the result, raises exception if occurred
-                    except Exception as e:
-                        print(f"Error processing URL: {e}")
-
     except Exception as e:
-        print(f"Error processing URLs: {e}")
+        print(f"Error processing URL {url}: {e}")
+        faulty_urls.append(url)
 
-    # Log the faulty URLs to a file for future re-processing or debugging
+
+# Read URLs from the CSV file
+def read_urls_from_csv(csv_file_path):
+    urls = []
+    try:
+        with open(csv_file_path, mode='r', newline='', encoding='utf-8') as file:
+            reader = csv.DictReader(file)  # Read the CSV as a dictionary
+            urls = [row['URL'] for row in reader if 'URL' in row and row['URL']]  # Ensure 'URL' column exists and is not empty
+    except Exception as e:
+        print(f"Error reading CSV file: {e}")
+    return urls
+
+
+def process_urls_and_save_to_excel(input_csv_path, output_directory):
+    output_file_name = os.path.join(output_directory, 'carrefour_products_copy_two.xlsx')
+    faulty_urls_file = os.path.join(output_directory, 'faulty_urls.txt')
+    
+    # Read URLs from CSV
+    urls = read_urls_from_csv(input_csv_path)
+
+    # List to store faulty URLs
+    faulty_urls = []
+
+    # Process each URL sequentially
+    for url in urls:
+        process_url(url, output_file_name, faulty_urls)
+
+    # Save faulty URLs to a file if any
     if faulty_urls:
-        faulty_urls_file = os.path.join(output_file, f"faulty_urls_{todays_date}.txt")
         with open(faulty_urls_file, 'w') as f:
-            for faulty_url in faulty_urls:
-                f.write(f"{faulty_url}\n")
+            for url in faulty_urls:
+                f.write(f"{url}\n")
         print(f"Faulty URLs saved to {faulty_urls_file}")
 
-
-# Call the function with the appropriate CSV file path and output directory
-driver = driver_intialize()
-driver.set_page_load_timeout(600)  # Set timeout to 600 seconds
-process_urls_and_save_to_excel(input_csv_path, output_directory, driver, 20)
+process_urls_and_save_to_excel(input_csv_path, output_directory)
 
