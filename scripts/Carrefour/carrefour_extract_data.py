@@ -284,6 +284,42 @@ def process_urls_and_save_to_excel(input_csv_path, output_directory):
             for url in faulty_urls:
                 f.write(f"{url}\n")
         print(f"Faulty URLs saved to {faulty_urls_file}")
+        
+def merge_excel_files(file1, file2, file3, output_file):
+    # Create a new workbook for the merged output
+    output_wb = Workbook()
+    output_ws = output_wb.active
 
-process_urls_and_save_to_excel(input_csv_path, output_directory)
+    # Function to append data from each workbook
+    def append_data_from_file(file_path, skip_first_row=False):
+        wb = load_workbook(file_path)
+        ws = wb.active
+        for i, row in enumerate(ws.iter_rows(values_only=True)):
+            # Skip the first row for the second and third files
+            if i == 0 and skip_first_row:
+                continue
+            output_ws.append(row)
 
+    # Merge the first file without skipping any rows
+    append_data_from_file(file1, skip_first_row=False)
+
+    # Merge the second and third files, skipping the first row
+    append_data_from_file(file2, skip_first_row=True)
+    append_data_from_file(file3, skip_first_row=True)
+
+    # Save the merged workbook
+    output_wb.save(output_file)
+
+# Paths to the input Excel files
+file1 = os.path.join(output_directory, 'carrefour_products.xlsx')
+file2 = os.path.join(output_directory, 'carrefour_products_copy_two.xlsx')
+file3 = os.path.join(output_directory, 'carrefour_products_copy_three.xlsx')
+
+# Output file path
+output_file = os.path.join(output_directory, 'carrefour_all_products.xlsx')
+
+
+# Merge the files
+merge_excel_files(file1, file2, file3, output_file)
+
+print(f"Files merged and saved to {output_file}")    
