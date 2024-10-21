@@ -44,6 +44,7 @@ def extract_categories(soup):
     try:
         elements = soup.select('.css-iamwo8')
         parent_categories = [element.text.strip() for element in elements if element.text.strip()]
+        parent_categories = parent_categories[1:]
         while len(parent_categories) < 7:
             parent_categories.append("")
         return parent_categories[:7]
@@ -172,7 +173,7 @@ def write_to_excel(output_file_name, product):
     ])
     workbook.save(output_file_name)
 
-def process_url(url, output_file_name, faulty_urls):
+def process_url(url, output_file_name, faulty_urls, crawled_date):
     try:
         url_in_arabic = convert_url_to_arabic(url)
         ar_response = requests.get(url_in_arabic)
@@ -185,7 +186,6 @@ def process_url(url, output_file_name, faulty_urls):
 
         merchant = 'Carrefour'
         source_type = 'Website'
-        todays_date = datetime.now().strftime('%d_%m_%Y')
 
         product_name_in_arabic = extract_product_name_in_arabic(soup_ar)
         brand_name_in_arabic = extract_brand_name(soup_ar)
@@ -201,7 +201,6 @@ def process_url(url, output_file_name, faulty_urls):
 
         # Extract the rest of the product data as before...
         product_name_in_english = extract_product_name_in_english(soup)
-        print(product_name_in_english)
         brand_name_in_english = extract_brand_name(soup)
         product_id = re.search(r'/p/(\d+)', url).group(1) if re.search(r'/p/(\d+)', url) else "id not found"
         categories_eng = extract_categories(soup)
@@ -241,11 +240,12 @@ def process_url(url, output_file_name, faulty_urls):
             url=url,
             image_url=image_url,
             source_type=source_type,
-            crawled_on=todays_date
+            crawled_on=crawled_date
         )
 
         write_to_excel(output_file_name, product)
-
+        mark_url_as_processed(input_csv_path, url)
+        
     except Exception as e:
         print(f"Error processing URL {url}: {e}")
         faulty_urls.append(url)
@@ -256,16 +256,54 @@ def read_urls_from_csv(csv_file_path):
     urls = []
     try:
         with open(csv_file_path, mode='r', newline='', encoding='utf-8') as file:
-            reader = csv.DictReader(file)  # Read the CSV as a dictionary
-            urls = [row['URL'] for row in reader if 'URL' in row and row['URL']]  # Ensure 'URL' column exists and is not empty
+            reader = csv.DictReader(file)
+            rows = list(reader)
+            
+            # Check if 'is_processed' column exists, add it if not
+            if 'is_processed' not in reader.fieldnames:
+                for row in rows:
+                    row['is_processed'] = 'False'  # Set all as False initially
+
+                # Write back to the CSV with the new 'is_processed' column
+                with open(csv_file_path, mode='w', newline='', encoding='utf-8') as file:
+                    writer = csv.DictWriter(file, fieldnames=reader.fieldnames + ['is_processed'])
+                    writer.writeheader()
+                    writer.writerows(rows)
+
+            # Filter unprocessed URLs
+            for row in rows:
+                if row['is_processed'] == 'False':
+                    urls.append({'Main Category': row['Main Category'], 'URL': row['URL']})
     except Exception as e:
         print(f"Error reading CSV file: {e}")
     return urls
 
+# Update the `is_processed` column in the CSV after processing a URL
+def mark_url_as_processed(csv_file_path, url):
+    try:
+        rows = []
+        with open(csv_file_path, mode='r', newline='', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            rows = list(reader)
+            
+            # Update the is_processed field for the URL
+            for row in rows:
+                if row['URL'] == url:
+                    row['is_processed'] = 'True'
+                    break
+
+        # Write the updated rows back to the CSV
+        with open(csv_file_path, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=reader.fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+    except Exception as e:
+        print(f"Error updating CSV file: {e}")
 
 def process_urls_and_save_to_excel(input_csv_path, output_directory):
     output_file_name = os.path.join(output_directory, 'carrefour_products_copy_two.xlsx')
     faulty_urls_file = os.path.join(output_directory, 'faulty_urls.txt')
+    crawled_date = datetime.now().strftime('%d_%m_%Y')
     
     # Read URLs from CSV
     urls = read_urls_from_csv(input_csv_path)
@@ -275,7 +313,7 @@ def process_urls_and_save_to_excel(input_csv_path, output_directory):
 
     # Process each URL sequentially
     for url in urls:
-        process_url(url, output_file_name, faulty_urls)
+        process_url(url, output_file_name, faulty_urls, crawled_date)
 
     # Save faulty URLs to a file if any
     if faulty_urls:
