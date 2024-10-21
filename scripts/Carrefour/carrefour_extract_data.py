@@ -3,18 +3,17 @@ from bs4 import BeautifulSoup
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import os
 import re
 import csv
 from datetime import datetime, timedelta
 from openpyxl import Workbook, load_workbook
 from concurrent.futures import ThreadPoolExecutor
-base_directory = 'I:\\Web Crawler Project'
-input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
-output_directory = os.path.join(base_directory, 'extractions', 'Carrefour')
+base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'  
+base_directory_windows = 'I:\\Web Crawler Project'
+input_csv_path = os.path.join(base_directory_windows, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
+output_directory = os.path.join(base_directory_windows, 'extractions', 'Carrefour')
 from models.Product import Product
 from utils.helpers import convert_url_to_arabic
-
 
 # Extract brand name using BeautifulSoup
 def extract_brand_name(soup):
@@ -309,17 +308,16 @@ def merge_excel_files(file1, file2, file3, output_file):
 
     # Save the merged workbook
     output_wb.save(output_file)
-
 # Paths to the input Excel files
-file1 = os.path.join(output_directory, 'carrefour_products.xlsx')
+file1 = os.path.join(output_directory, 'carrefour_products_set.xlsx')
 file2 = os.path.join(output_directory, 'carrefour_products_copy_two.xlsx')
 file3 = os.path.join(output_directory, 'carrefour_products_copy_three.xlsx')
 
 # Output file path
 output_file = os.path.join(output_directory, 'carrefour_all_products.xlsx')
 
+process_urls_and_save_to_excel(input_csv_path, output_directory)
 
 # Merge the files
-merge_excel_files(file1, file2, file3, output_file)
-
-print(f"Files merged and saved to {output_file}")    
+# merge_excel_files(file1, file2, file3, output_file)
+# print(f"Files merged and saved to {output_file}")    
