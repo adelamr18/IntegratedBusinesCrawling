@@ -251,28 +251,17 @@ def process_url(url, output_file_name, faulty_urls, crawled_date):
         faulty_urls.append(url)
 
 
-# Read URLs from the CSV file
 def read_urls_from_csv(csv_file_path):
     urls = []
     try:
         with open(csv_file_path, mode='r', newline='', encoding='utf-8') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
-            
-            # Check if 'is_processed' column exists, add it if not
-            if 'is_processed' not in reader.fieldnames:
-                for row in rows:
-                    row['is_processed'] = 'False'  # Set all as False initially
 
-                # Write back to the CSV with the new 'is_processed' column
-                with open(csv_file_path, mode='w', newline='', encoding='utf-8') as file:
-                    writer = csv.DictWriter(file, fieldnames=reader.fieldnames + ['is_processed'])
-                    writer.writeheader()
-                    writer.writerows(rows)
-
+            # No need to check if 'is_processed' column exists; we assume it does
             # Filter unprocessed URLs
             for row in rows:
-                if row['is_processed'] == 'False':
+                if row['is_processed'] == 'False':  # Only append unprocessed URLs
                     urls.append({'Main Category': row['Main Category'], 'URL': row['URL']})
     except Exception as e:
         print(f"Error reading CSV file: {e}")
@@ -289,16 +278,17 @@ def mark_url_as_processed(csv_file_path, url):
             # Update the is_processed field for the URL
             for row in rows:
                 if row['URL'] == url:
-                    row['is_processed'] = 'True'
+                    row['is_processed'] = 'True'  # Mark the URL as processed
                     break
 
         # Write the updated rows back to the CSV
         with open(csv_file_path, mode='w', newline='', encoding='utf-8') as file:
             writer = csv.DictWriter(file, fieldnames=reader.fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
+            writer.writeheader()  # Write the header again
+            writer.writerows(rows)  # Write updated data
     except Exception as e:
         print(f"Error updating CSV file: {e}")
+
 
 def process_urls_and_save_to_excel(input_csv_path, output_directory):
     output_file_name = os.path.join(output_directory, 'carrefour_products_copy_two.xlsx')
