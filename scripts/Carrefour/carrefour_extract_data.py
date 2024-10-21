@@ -171,6 +171,7 @@ def write_to_excel(output_file_name, product):
 # Process each URL and extract product information
 def process_url(url, output_file_name, faulty_urls, crawled_date):
     try:
+        is_successful = True
         url_in_arabic = convert_url_to_arabic(url)
         ar_response = requests.get(url_in_arabic)
         soup_ar = BeautifulSoup(ar_response.text, 'html.parser')
@@ -235,10 +236,12 @@ def process_url(url, output_file_name, faulty_urls, crawled_date):
         write_to_excel(output_file_name, product)
 
         # Update is_processed in the CSV file
-        update_is_processed_in_csv(url)
+        update_is_processed_in_csv(url, True)
 
     except Exception as e:
         print(f"Error processing URL {url}: {e}")
+        is_successful = False
+        update_is_processed_in_csv(url, is_successful)
         faulty_urls.append(url)
 
 def read_urls_from_csv(csv_file_path):
@@ -255,25 +258,32 @@ def read_urls_from_csv(csv_file_path):
         print(f"Error reading CSV file: {e}")
     return urls
 
-# Update is_processed status in the CSV file
-def update_is_processed_in_csv(url):
+def update_is_processed_in_csv(url, is_successful):
     rows = []
+    url_found = False  # Flag to check if the URL exists
     try:
         with open(input_csv_path, mode='r', newline='', encoding='utf-8') as file:
             reader = csv.reader(file)
             header = next(reader)
+
             # Add is_processed header if not exists
             if len(header) < 3 or header[2] != 'is_processed':
                 header.append('is_processed')
             rows.append(header)
+
             for row in reader:
                 if row[1] == url:
-                    # Update is_processed to 'True' for the processed URL
+                    url_found = True
+                    # If URL is found, update the is_processed status
                     if len(row) < 3:
-                        row.append('True')
+                        row.append('True' if is_successful else 'False')
                     else:
-                        row[2] = 'True'
+                        row[2] = 'True' if is_successful else 'False'
                 rows.append(row)
+
+            # If the URL was not found, append a new row with the corresponding status
+            if not url_found:
+                rows.append([None, url, 'True' if is_successful else 'False'])  # Assuming None for the first column
 
         # Write updated rows back to CSV
         with open(input_csv_path, mode='w', newline='', encoding='utf-8') as file:
@@ -282,6 +292,29 @@ def update_is_processed_in_csv(url):
 
     except Exception as e:
         print(f"Error updating CSV file: {e}")
+
+        # If an error happens, we still want to mark the URL as not processed
+        rows.append([None, url, 'False'])  # Assuming None for the first column
+        # Write rows back to CSV, ensuring the header is included
+        try:
+            with open(input_csv_path, mode='w', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file)
+                writer.writerows(rows)
+        except Exception as write_error:
+            print(f"Error writing to CSV file: {write_error}")
+
+
+    except Exception as e:
+        print(f"Error updating CSV file: {e}")
+        # If an error happens, we still want to mark the URL as not processed
+        rows.append([None, url, 'False'])  # Assuming None for the first column
+        # Write rows back to CSV, ensuring the header is included
+        try:
+            with open(input_csv_path, mode='w', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file)
+                writer.writerows(rows)
+        except Exception as write_error:
+            print(f"Error writing to CSV file: {write_error}")
 
 def process_urls_and_save_to_excel(input_csv_path, output_directory):
     output_file_name = os.path.join(output_directory, 'carrefour_products_four.xlsx')
