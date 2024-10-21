@@ -14,6 +14,7 @@ input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extra
 output_directory = os.path.join(base_directory, 'extractions', 'Carrefour')
 from models.Product import Product
 from utils.helpers import convert_url_to_arabic
+import json
 
 # Extract brand name using BeautifulSoup
 def extract_brand_name(soup):
@@ -51,7 +52,6 @@ def extract_categories(soup):
         print(f"Error extracting parent categories: {e}")
         return [""] * 7
 
-import json
 
 def extract_product_barcode(soup):
     try:
@@ -59,7 +59,7 @@ def extract_product_barcode(soup):
         element = soup.select_one("#__NEXT_DATA__")
 
         if not element:
-            return "Product barcode not found: script tag missing"
+            return "Product barcode not found"
         
         # Get the content of the script tag
         script_content = element.string.strip()
@@ -68,20 +68,28 @@ def extract_product_barcode(soup):
         try:
             json_data = json.loads(script_content)
 
-            # Navigate to the barcode in the JSON structure
-            barcodes = json_data['props']['initialProps']['pageProps']['initialData']['products'][0]['attributes']['barCodes']
+            # Try to extract barcodes first from 'barCodes'
+            try:
+                barcodes = json_data['props']['initialProps']['pageProps']['initialData']['products'][0]['attributes']['barCodes']
+                
+                if barcodes and isinstance(barcodes, list):
+                    return barcodes[0]  # Return the first barcode if found
+                else:
+                    raise KeyError  # Trigger fallback if no barcodes are found
+                
+            except KeyError:
+                # Fallback: extract from 'ean' if 'barCodes' are not available
+                ean = json_data['props']['initialProps']['pageProps']['initialData']['products'][0]['attributes'].get('ean')
+                if ean:
+                    return ean  # Return the EAN if available
+                else:
+                    return "Product barcode not found"
 
-            if barcodes and isinstance(barcodes, list):
-                print(barcodes[0])
-                return barcodes[0]  # Return the first barcode
-            else:
-                return "No barcodes found"
         except (json.JSONDecodeError, KeyError) as e:
-            return f"Error parsing JSON data: {e}"
+            return f"Product barcode not found"
     
     except Exception as e:
-        print(f"Error extracting product barcode: {e}")
-        return "Product barcode not found"
+        return f"Product barcode not found"
 
 # Extract product name in Arabic using BeautifulSoup
 def extract_product_name_in_arabic(soup):
