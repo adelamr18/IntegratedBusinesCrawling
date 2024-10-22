@@ -252,6 +252,8 @@ def process_url(url, output_file_name, faulty_urls, crawled_date):
         update_is_processed_in_csv(url, is_successful)
         faulty_urls.append(url)
 
+import time  # To use sleep
+
 def read_urls_from_csv(csv_file_path):
     urls = []
     try:
@@ -260,8 +262,9 @@ def read_urls_from_csv(csv_file_path):
             # Skip the header
             next(reader)
             for row in reader:
-                if len(row) < 3 or row[2] == '':  # Check if is_processed column is empty
-                    urls.append(row[1])  # Append only the URL
+                # Append URLs where is_processed is either False, empty, or not present
+                if len(row) < 3 or row[2].strip().lower() == 'false' or row[2].strip() == '':
+                    urls.append(row[1])  # Append the URL
     except Exception as e:
         print(f"Error reading CSV file: {e}")
     return urls
@@ -332,12 +335,17 @@ def process_urls_and_save_to_excel(input_csv_path, output_directory):
         crawled_date = datetime.now().strftime('%d_%m_%Y')
         urls = read_urls_from_csv(input_csv_path)
 
+        if not urls:
+            print("No more URLs to process. Waiting for new unprocessed URLs...")
+            time.sleep(60)  # Sleep for 60 seconds before checking again
+            continue  # Continue the loop and recheck
+
         # List to store faulty URLs
         faulty_urls = []
 
         # Process each URL sequentially
         for url in urls:
-            print(url)
+            print(f"Processing URL: {url}")
             process_url(url, output_file_name, faulty_urls, crawled_date)
 
         # Save faulty URLs to a file if any
@@ -347,7 +355,7 @@ def process_urls_and_save_to_excel(input_csv_path, output_directory):
                     f.write(f"{url}\n")
             print(f"Faulty URLs saved to {faulty_urls_file}")
 
-        print("Waiting for new URLs or reprocessing...")
-          # Wait for 60 seconds before rechecking the CSV
+        print("Waiting for new URLs or reprocessing unprocessed ones...")
+        time.sleep(60)  # Wait for 60 seconds before rechecking the CSV
 
 process_urls_and_save_to_excel(input_csv_path, output_directory)

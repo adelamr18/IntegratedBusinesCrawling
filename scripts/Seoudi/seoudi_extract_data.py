@@ -2,13 +2,12 @@ from asyncio import sleep
 import requests
 import sys
 import os
+import time  # Import time for delay between restarts
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from datetime import datetime
 from scripts.models.Product import Product
 from utils.helpers import write_to_excel
-import requests
 from openpyxl import load_workbook, Workbook
-import requests
 import json
 
 # Paths and directories
@@ -264,7 +263,7 @@ def get_product_details_per_language(slug, lang):
     }
 
     # Send the POST request for product details
-    return requests.post(details_url, headers=headers, json=details_payload)     
+    return requests.post(details_url, headers=headers, json=details_payload)
 
 def fetch_product_details(slug, output_file, todays_date):
     output_file_name = os.path.join(output_file, f"seoudi_extract_data_{todays_date}.xlsx")
@@ -280,7 +279,9 @@ def fetch_product_details(slug, output_file, todays_date):
         categories_eng = product_details_eng.get('categories', [])
         product_id = product_details_eng.get('id')
         brand_details_eng = product_details_eng.get('brand', {}) if product_details_eng is not None else {}
-        brand_name_in_english = brand_details_eng.get('name', None) if brand_details_eng else None
+        brand_name_in_english = brand_details_eng.get("name") if brand_details_eng is not None else None
+
+        # Extract all required English fields
         product_barcode = product_details_eng.get('sku')
         product_name_in_english = product_details_eng.get('name')
         offer_start_date = product_details_eng.get('special_from_date', None)
@@ -288,7 +289,7 @@ def fetch_product_details(slug, output_file, todays_date):
 
         # Get price_before_offer
         price_before_offer = product_details_eng.get('price_range', {}).get('maximum_price', {}).get('regular_price', {}).get('value', None)
-        
+
         # Check price_after_offer
         price_after_offer = product_details_eng.get('price_range', {}).get('maximum_price', {}).get('final_price', {}).get('value', None)
         if price_after_offer == price_before_offer:
@@ -384,44 +385,19 @@ def fetch_product_details(slug, output_file, todays_date):
 
 def extract_all_seoudi_product_data(output_file, todays_date):
     extract_products_per_category(output_file, todays_date)
-    
-def merge_excel_files(file1, file2, file3, output_file):
-    # Create a new workbook for the merged output
-    output_wb = Workbook()
-    output_ws = output_wb.active
 
-    # Function to append data from each workbook
-    def append_data_from_file(file_path, skip_first_row=False):
-        wb = load_workbook(file_path)
-        ws = wb.active
-        for i, row in enumerate(ws.iter_rows(values_only=True)):
-            # Skip the first row for the second and third files
-            if i == 0 and skip_first_row:
-                continue
-            output_ws.append(row)
+def main():
+    output_file = os.path.join(output_directory)
+    todays_date = datetime.today().strftime('%Y-%m-%d')
 
-    # Merge the first file without skipping any rows
-    append_data_from_file(file1, skip_first_row=False)
+    while True:  # Infinite loop to automatically restart the script
+        try:
+            extract_all_seoudi_product_data(output_file, todays_date)
+            print("Data extraction completed successfully.")
+            break  # Exit the loop if successful
+        except Exception as e:
+            log_error(f"Unexpected error: {e}")
+            print(f"Error encountered: {e}. Restarting script in 10 seconds...")
+            time.sleep(10)  # Add a delay before restarting the script
 
-    # Merge the second and third files, skipping the first row
-    append_data_from_file(file2, skip_first_row=True)
-    append_data_from_file(file3, skip_first_row=True)
-
-    # Save the merged workbook
-    output_wb.save(output_file)
-
-# Paths to the input Excel files
-file1 = os.path.join(output_directory, 'seoudi_extract_data_10_10_2024.xlsx')
-file2 = os.path.join(output_directory, 'seoudi_extract_data_11_10_2024.xlsx')
-file3 = os.path.join(output_directory, 'seoudi_extract_data_12_10_2024.xlsx')
-
-# Output file path
-output_file = os.path.join(output_directory, 'seoudi_all_products.xlsx')
-
-# Merge the files
-# merge_excel_files(file1, file2, file3, output_file)
-# print(f"Files merged and saved to {output_file}")    
-
-# Call the function to extract data
-todays_date = datetime.now().strftime('%d_%m_%Y')
-extract_all_seoudi_product_data(output_directory, todays_date)
+main()
