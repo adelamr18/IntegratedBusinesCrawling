@@ -2,19 +2,21 @@ import requests
 from bs4 import BeautifulSoup
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import os
 import re
 import csv
 from datetime import datetime, timedelta
 from openpyxl import Workbook, load_workbook
-from concurrent.futures import ThreadPoolExecutor
+import json
+import time
+
+# Base directory and paths
 base_directory = 'I:\\Web Crawler Project'
 input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
 output_directory = os.path.join(base_directory, 'extractions', 'Carrefour')
+
+# Models and helpers
 from models.Product import Product
 from utils.helpers import convert_url_to_arabic
-import json
 
 # Extract brand name using BeautifulSoup
 def extract_brand_name(soup):
@@ -44,52 +46,38 @@ def extract_categories(soup):
     try:
         elements = soup.select('.css-iamwo8')
         parent_categories = [element.text.strip() for element in elements if element.text.strip()]
-        parent_categories = parent_categories[1:]
+        parent_categories = parent_categories[1:]  # Skip the first element
         while len(parent_categories) < 7:
-            parent_categories.append("")
+            parent_categories.append("")  # Ensure 7 categories
         return parent_categories[:7]
     except Exception as e:
         print(f"Error extracting parent categories: {e}")
         return [""] * 7
 
-
+# Extract product barcode using BeautifulSoup
 def extract_product_barcode(soup):
     try:
-        # Locate the specific script tag with id "__NEXT_DATA__"
         element = soup.select_one("#__NEXT_DATA__")
-
         if not element:
             return "Product barcode not found"
-        
-        # Get the content of the script tag
+
         script_content = element.string.strip()
+        json_data = json.loads(script_content)
 
-        # Parse the content as JSON
+        # Try to extract barcodes first from 'barCodes'
         try:
-            json_data = json.loads(script_content)
-
-            # Try to extract barcodes first from 'barCodes'
-            try:
-                barcodes = json_data['props']['initialProps']['pageProps']['initialData']['products'][0]['attributes']['barCodes']
-                
-                if barcodes and isinstance(barcodes, list):
-                    return barcodes[0]  # Return the first barcode if found
-                else:
-                    raise KeyError  # Trigger fallback if no barcodes are found
-                
-            except KeyError:
-                # Fallback: extract from 'ean' if 'barCodes' are not available
-                ean = json_data['props']['initialProps']['pageProps']['initialData']['products'][0]['attributes'].get('ean')
-                if ean:
-                    return ean  # Return the EAN if available
-                else:
-                    return "Product barcode not found"
-
-        except (json.JSONDecodeError, KeyError) as e:
-            return f"Product barcode not found"
+            barcodes = json_data['props']['initialProps']['pageProps']['initialData']['products'][0]['attributes']['barCodes']
+            if barcodes and isinstance(barcodes, list):
+                return barcodes[0]  # Return the first barcode if found
+            else:
+                raise KeyError  # Trigger fallback if no barcodes are found
+        except KeyError:
+            # Fallback: extract from 'ean'
+            ean = json_data['props']['initialProps']['pageProps']['initialData']['products'][0]['attributes'].get('ean')
+            return ean if ean else "Product barcode not found"
     
     except Exception as e:
-        return f"Product barcode not found"
+        return "Product barcode not found"
 
 # Extract product name in Arabic using BeautifulSoup
 def extract_product_name_in_arabic(soup):
@@ -176,99 +164,7 @@ def write_to_excel(output_file_name, product):
     ])
     workbook.save(output_file_name)
 
-# Process each URL and extract product information
-def process_url(url, output_file_name, faulty_urls, crawled_date):
-    try:
-        is_successful = True
-        url_in_arabic = convert_url_to_arabic(url)
-        ar_response = requests.get(url_in_arabic)
-        soup_ar = BeautifulSoup(ar_response.text, 'html.parser')
-
-        merchant = 'Carrefour'
-        source_type = 'Website'
-
-        product_name_in_arabic = extract_product_name_in_arabic(soup_ar)
-        brand_name_in_arabic = extract_brand_name(soup_ar)
-        categories_ar = extract_categories(soup_ar)
-        
-        eng_response = requests.get(url)
-        soup = BeautifulSoup(eng_response.text, 'html.parser')
-        
-        product_name_in_english = extract_product_name_in_english(soup)
-        brand_name_in_english = extract_brand_name(soup)
-        product_id = re.search(r'/p/(\d+)', url).group(1) if re.search(r'/p/(\d+)', url) else "id not found"
-        categories_eng = extract_categories(soup)
-        product_barcode = extract_product_barcode(soup)
-        price_after_offer = extract_product_price_after_offer(soup)
-        price_before_offer = extract_product_price_before_offer(soup, price_after_offer)
-        offer_start_date = datetime.now().strftime('%Y-%m-%d') if price_after_offer else ''
-        offer_end_date = extract_offer_end_date(soup)
-        image_url = extract_image_url(soup)
-
-        product = Product(
-            merchant=merchant,
-            product_id=product_id,
-            brand_ar=brand_name_in_arabic,
-            brand_en=brand_name_in_english,
-            barcode=product_barcode,
-            name_ar=product_name_in_arabic,
-            name_en=product_name_in_english,
-            category_one_eng=categories_eng[1] if len(categories_eng) > 0 else '',
-            category_two_eng=categories_eng[2] if len(categories_eng) > 1 else '',
-            category_three_eng=categories_eng[3] if len(categories_eng) > 2 else '',
-            category_four_eng=categories_eng[4] if len(categories_eng) > 3 else '',
-            category_five_eng=categories_eng[5] if len(categories_eng) > 4 else '',
-            category_six_eng=categories_eng[6] if len(categories_eng) > 5 else '',
-            category_seven_eng='',
-            category_eight_eng='',
-            category_nine_eng= '',
-            category_one_ar=categories_ar[1] if len(categories_ar) > 0 else '',
-            category_two_ar=categories_ar[2] if len(categories_ar) > 1 else '',
-            category_three_ar=categories_ar[3] if len(categories_ar) > 2 else '',
-            category_four_ar=categories_ar[4] if len(categories_ar) > 3 else '',
-            category_five_ar=categories_ar[5] if len(categories_ar) > 4 else '',
-            category_six_ar=categories_ar[6] if len(categories_ar) > 5 else '',
-            category_seven_ar='',
-            category_eight_ar= '',
-            category_nine_ar= '',
-            price_before=price_before_offer,
-            price_after=price_after_offer,
-            offer_start_date=offer_start_date,
-            offer_end_date=offer_end_date,
-            url=url,
-            image_url=image_url,
-            source_type=source_type,
-            crawled_on=crawled_date
-        )
-
-        write_to_excel(output_file_name, product)
-
-        # Update is_processed in the CSV file
-        update_is_processed_in_csv(url, True)
-
-    except Exception as e:
-        print(f"Error processing URL {url}: {e}")
-        is_successful = False
-        update_is_processed_in_csv(url, is_successful)
-        faulty_urls.append(url)
-
-import time  # To use sleep
-
-def read_urls_from_csv(csv_file_path):
-    urls = []
-    try:
-        with open(csv_file_path, mode='r', newline='', encoding='utf-8') as file:
-            reader = csv.reader(file)
-            # Skip the header
-            next(reader)
-            for row in reader:
-                # Append URLs where is_processed is either False, empty, or not present
-                if len(row) < 3 or row[2].strip().lower() == 'false' or row[2].strip() == '':
-                    urls.append(row[1])  # Append the URL
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-    return urls
-
+# Update the processed status of a URL in the CSV
 def update_is_processed_in_csv(url, is_successful):
     rows = []
     url_found = False  # Flag to check if the URL exists
@@ -327,35 +223,113 @@ def update_is_processed_in_csv(url, is_successful):
         except Exception as write_error:
             print(f"Error writing to CSV file: {write_error}")
 
-def process_urls_and_save_to_excel(input_csv_path, output_directory):
-    output_file_name = os.path.join(output_directory, 'carrefour_products_four.xlsx')
-    faulty_urls_file = os.path.join(output_directory, 'faulty_urls.txt')
-    
-    while True:  # Loop indefinitely
-        crawled_date = datetime.now().strftime('%d_%m_%Y')
-        urls = read_urls_from_csv(input_csv_path)
+def read_urls_from_csv(csv_file_path):
+    urls = []
+    try:
+        with open(csv_file_path, mode='r', newline='', encoding='utf-8') as file:
+            reader = csv.reader(file)
+            # Skip the header
+            next(reader)
+            for row in reader:
+                # Append URLs where is_processed is either False, empty, or not present
+                if len(row) < 3 or row[2].strip().lower() == 'false' or row[2].strip() == '':
+                    urls.append(row[1])  # Append the URL
+    except Exception as e:
+        print(f"Error reading CSV file: {e}")
+    return urls
 
-        if not urls:
-            print("No more URLs to process. Waiting for new unprocessed URLs...")
-            time.sleep(60)  # Sleep for 60 seconds before checking again
-            continue  # Continue the loop and recheck
+# Process each URL and extract product information
+def process_url(url, output_file_name, crawled_date):
+    try:
+        is_successful = True
+        url_in_arabic = convert_url_to_arabic(url)
+        ar_response = requests.get(url_in_arabic)
+        soup_ar = BeautifulSoup(ar_response.text, 'html.parser')
 
-        # List to store faulty URLs
-        faulty_urls = []
+        merchant = 'Carrefour'
+        source_type = 'Website'
 
-        # Process each URL sequentially
-        for url in urls:
-            print(f"Processing URL: {url}")
-            process_url(url, output_file_name, faulty_urls, crawled_date)
+        product_name_in_arabic = extract_product_name_in_arabic(soup_ar)
+        brand_name_in_arabic = extract_brand_name(soup_ar)
+        categories_ar = extract_categories(soup_ar)
 
-        # Save faulty URLs to a file if any
-        if faulty_urls:
-            with open(faulty_urls_file, 'w') as f:
-                for url in faulty_urls:
-                    f.write(f"{url}\n")
-            print(f"Faulty URLs saved to {faulty_urls_file}")
+        eng_response = requests.get(url)
+        soup = BeautifulSoup(eng_response.text, 'html.parser')
 
-        print("Waiting for new URLs or reprocessing unprocessed ones...")
-        time.sleep(60)  # Wait for 60 seconds before rechecking the CSV
+        product_name_in_english = extract_product_name_in_english(soup)
+        brand_name_in_english = extract_brand_name(soup)
+        product_id = re.search(r'/p/(\d+)', url).group(1) if re.search(r'/p/(\d+)', url) else "id not found"
+        categories_eng = extract_categories(soup)
+        product_barcode = extract_product_barcode(soup)
+        price_after_offer = extract_product_price_after_offer(soup)
+        price_before_offer = extract_product_price_before_offer(soup, price_after_offer)
+        offer_start_date = datetime.now().strftime('%Y-%m-%d') if price_after_offer else ''
+        offer_end_date = extract_offer_end_date(soup)
+        image_url = extract_image_url(soup)
 
-process_urls_and_save_to_excel(input_csv_path, output_directory)
+        product = Product(
+            merchant=merchant,
+            product_id=product_id,
+            brand_ar=brand_name_in_arabic,
+            brand_en=brand_name_in_english,
+            barcode=product_barcode,
+            name_ar=product_name_in_arabic,
+            name_en=product_name_in_english,
+            category_one_eng=categories_eng[1] if len(categories_eng) > 0 else '',
+            category_two_eng=categories_eng[2] if len(categories_eng) > 1 else '',
+            category_three_eng=categories_eng[3] if len(categories_eng) > 2 else '',
+            category_four_eng=categories_eng[4] if len(categories_eng) > 3 else '',
+            category_five_eng=categories_eng[5] if len(categories_eng) > 4 else '',
+            category_six_eng=categories_eng[6] if len(categories_eng) > 5 else '',
+            category_seven_eng='',
+            category_eight_eng='',
+            category_nine_eng= '',
+            category_one_ar=categories_ar[1] if len(categories_ar) > 0 else '',
+            category_two_ar=categories_ar[2] if len(categories_ar) > 1 else '',
+            category_three_ar=categories_ar[3] if len(categories_ar) > 2 else '',
+            category_four_ar=categories_ar[4] if len(categories_ar) > 3 else '',
+            category_five_ar=categories_ar[5] if len(categories_ar) > 4 else '',
+            category_six_ar=categories_ar[6] if len(categories_ar) > 5 else '',
+            category_seven_ar='',
+            category_eight_ar= '',
+            category_nine_ar= '',
+            price_before=price_before_offer,
+            price_after=price_after_offer,
+            offer_start_date=offer_start_date,
+            offer_end_date=offer_end_date,
+            url=url,
+            image_url=image_url,
+            source_type=source_type,
+            crawled_on=crawled_date
+        )
+
+        write_to_excel(output_file_name, product)
+
+        # Mark URL as processed
+        update_is_processed_in_csv(url, True)
+
+    except Exception as e:
+        print(f"Error processing {url}: {e}")
+        is_successful = False
+        # Mark URL as unprocessed if an error occurs
+        update_is_processed_in_csv(url, is_successful)
+
+    return is_successful
+
+# Main function to run the crawler
+def run_crawler():
+    crawled_date = datetime.now().strftime('%Y-%m-%d')
+    output_file_name = os.path.join(output_directory, f'extracted_products_{crawled_date}.xlsx')
+
+    # Load URLs from CSV
+    urls_to_process = read_urls_from_csv()
+
+    # Retry unprocessed URLs
+    for url in urls_to_process:
+        success = process_url(url, output_file_name, crawled_date)
+        if not success:
+            print(f"Retrying URL: {url}")
+            time.sleep(5)  # Wait before retrying
+            process_url(url, output_file_name, crawled_date)
+
+run_crawler()
