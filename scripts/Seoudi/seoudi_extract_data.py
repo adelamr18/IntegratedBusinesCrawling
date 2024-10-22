@@ -1,20 +1,54 @@
+from asyncio import sleep
 import requests
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-base_directory = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'  
-output_directory = os.path.join(base_directory, 'extractions', 'Seoudi')
 from datetime import datetime
 from scripts.models.Product import Product
 from utils.helpers import write_to_excel
 import requests
 from openpyxl import load_workbook, Workbook
+import requests
+import json
 
-def extract_products_per_category(output_file):
+# Paths and directories
+base_directory = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
+output_directory = os.path.join(base_directory, 'extractions', 'Seoudi')
+progress_log = os.path.join(output_directory, 'progress_log.json')
+error_log = os.path.join(output_directory, 'error_log.txt')
+
+# Retry mechanism
+MAX_RETRIES = 5
+
+# Track progress in a file (so the script can restart from last known state)
+def load_progress():
+    if os.path.exists(progress_log):
+        with open(progress_log, 'r') as file:
+            return json.load(file)
+    return {"last_category": None, "last_slug": None}
+
+def save_progress(category, slug):
+    with open(progress_log, 'w') as file:
+        json.dump({"last_category": category, "last_slug": slug}, file)
+
+def log_error(message):
+    with open(error_log, 'a') as file:
+        file.write(f"{datetime.now()}: {message}\n")
+
+def retry_request(func, *args, retries=MAX_RETRIES, **kwargs):
+    for attempt in range(1, retries + 1):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            log_error(f"Error: {e}. Retrying {attempt}/{retries}...")
+            sleep(2 ** attempt)  # Exponential backoff
+    log_error(f"Failed after {retries} attempts.")
+    return None
+
+def extract_products_per_category(output_file, todays_date):
     # Define all categories
     categories = [
-
-    'Mjg5NA==',  # Seoudi products, Fruits and Vegetables
+        'Mjg5NA==',  # Seoudi products, Fruits and Vegetables
         'NTIy',      # Meat and Poultry
         'MjU=',      # Dairy, Eggs and Cheese
         'NTMx',      # Cold Cuts & Deli
@@ -45,6 +79,10 @@ def extract_products_per_category(output_file):
     headers = {
         "Content-Type": "application/json"
     }
+
+    # Load progress and retry mechanism additions
+    progress = load_progress()
+    last_slug = progress["last_slug"]  # Keep track of the last slug processed
 
     for category in categories:
         # Define the payload (query and variables)
@@ -137,31 +175,29 @@ def extract_products_per_category(output_file):
             }
         }
 
-        # Send the POST request
-        response = requests.post(url, headers=headers, json=payload)
+        # Send the POST request and retry if necessary
+        response = retry_request(requests.post, url, headers=headers, json=payload)
 
-        # Print the results
-        if response.status_code == 200:
+        if response and response.status_code == 200:
             products = response.json().get('data', {}).get('connection', {}).get('nodes', [])
 
             for product in products:
                 url_key = product.get('url_key')
-                id = product.get('id')
 
-                # Check if url_key is present
-                if url_key:
-                    # Call the details endpoint with the url_key as slug
-                    fetch_product_details(url_key, output_file)
+                # Check if we should start processing products
+                if last_slug and url_key == last_slug:
+                    last_slug = None  # Clear the slug to continue processing new products
+                
+                if last_slug is None:  # Only process products if we haven't reached the last_slug
+                    if url_key:
+                        # Call the details endpoint with the url_key as slug
+                        fetch_product_details(url_key, output_file, todays_date)
+                        # Save progress after processing each product
+                        save_progress(category, url_key)
 
         else:
-            print(f"Error for category {category}: {response.status_code}")
-            print(response.text)
-            
-import requests
-import os
-from datetime import datetime
-from scripts.models.Product import Product
-from utils.helpers import write_to_excel
+            log_error(f"Error for category {category}: {response.status_code} {response.text if response else 'No response'}")
+            continue  # Move to the next category
 
 def get_product_details_per_language(slug, lang):
     # Define the URL for the GraphQL endpoint with the store as a query param
@@ -230,22 +266,20 @@ def get_product_details_per_language(slug, lang):
     # Send the POST request for product details
     return requests.post(details_url, headers=headers, json=details_payload)     
 
-def fetch_product_details(slug, output_file):
-    # Define today's date for output naming and logging
-    todays_date = datetime.now().strftime('%d_%m_%Y')
+def fetch_product_details(slug, output_file, todays_date):
     output_file_name = os.path.join(output_file, f"seoudi_extract_data_{todays_date}.xlsx")
     
     # Fetch product details in English
     product_details_in_english = get_product_details_per_language(slug, "default")
 
     # Process the English response if the request is successful
-    if product_details_in_english.status_code == 200:
+    if product_details_in_english and product_details_in_english.status_code == 200:
         product_details_eng = product_details_in_english.json().get('data', {}).get('product', {})
         merchant_name = "Seoudi"
         source_type = "Website"
         categories_eng = product_details_eng.get('categories', [])
         product_id = product_details_eng.get('id')
-        brand_details_eng = product_details_eng.get('brand', {})
+        brand_details_eng = product_details_eng.get('brand', {}) if product_details_eng is not None else {}
         brand_name_in_english = brand_details_eng.get('name', None) if brand_details_eng else None
         product_barcode = product_details_eng.get('sku')
         product_name_in_english = product_details_eng.get('name')
@@ -284,7 +318,7 @@ def fetch_product_details(slug, output_file):
         brand_name_in_arabic = None
         categories_ar = []
 
-        if product_details_in_arabic.status_code == 200:
+        if product_details_in_arabic and product_details_in_arabic.status_code == 200:
             product_details_ar = product_details_in_arabic.json().get('data', {}).get('product', {})
             
             # Only access Arabic product details if the response is not None
@@ -346,14 +380,10 @@ def fetch_product_details(slug, output_file):
         write_to_excel(output_file_name, product)
 
     else:
-        print(f"Error fetching details for slug {slug}: {product_details_in_english.status_code}")
-        print(product_details_in_english.text)
+        log_error(f"Error fetching details for slug {slug}: {product_details_in_english.status_code if product_details_in_english else 'No response'}")
 
-
-
-
-def extract_all_seoudi_product_data(output_file):
-    extract_products_per_category(output_file)
+def extract_all_seoudi_product_data(output_file, todays_date):
+    extract_products_per_category(output_file, todays_date)
     
 def merge_excel_files(file1, file2, file3, output_file):
     # Create a new workbook for the merged output
@@ -389,9 +419,9 @@ file3 = os.path.join(output_directory, 'seoudi_extract_data_12_10_2024.xlsx')
 output_file = os.path.join(output_directory, 'seoudi_all_products.xlsx')
 
 # Merge the files
-merge_excel_files(file1, file2, file3, output_file)
-
-print(f"Files merged and saved to {output_file}")    
+# merge_excel_files(file1, file2, file3, output_file)
+# print(f"Files merged and saved to {output_file}")    
 
 # Call the function to extract data
-# extract_all_seoudi_product_data(output_directory)
+todays_date = datetime.now().strftime('%d_%m_%Y')
+extract_all_seoudi_product_data(output_directory, todays_date)
