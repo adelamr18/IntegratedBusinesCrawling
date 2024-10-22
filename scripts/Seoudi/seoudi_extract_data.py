@@ -82,12 +82,9 @@ def extract_products_per_category(output_file, todays_date):
 
     # Load progress and retry mechanism additions
     progress = load_progress()
+    last_slug = progress["last_slug"]  # Keep track of the last slug processed
 
     for category in categories:
-        # Skip categories already processed
-        if progress["last_category"] and category != progress["last_category"]:
-            continue  # Skip until we reach the last processed category
-
         # Define the payload (query and variables)
         payload = {
             "query": """
@@ -186,22 +183,21 @@ def extract_products_per_category(output_file, todays_date):
 
             for product in products:
                 url_key = product.get('url_key')
-                id = product.get('id')
 
-                # Check if url_key is present and continue from the last known slug
-                if url_key and (progress["last_slug"] and url_key == progress["last_slug"]):
-                    progress["last_slug"] = None  # Clear the slug to continue processing new products
-
-                if url_key:
-                    # Call the details endpoint with the url_key as slug
-                    fetch_product_details(url_key, output_file, todays_date)
-                    # Save progress after processing each product
-                    save_progress(category, url_key)
+                # Check if we should start processing products
+                if last_slug and url_key == last_slug:
+                    last_slug = None  # Clear the slug to continue processing new products
+                
+                if last_slug is None:  # Only process products if we haven't reached the last_slug
+                    if url_key:
+                        # Call the details endpoint with the url_key as slug
+                        fetch_product_details(url_key, output_file, todays_date)
+                        # Save progress after processing each product
+                        save_progress(category, url_key)
 
         else:
             log_error(f"Error for category {category}: {response.status_code} {response.text if response else 'No response'}")
             continue  # Move to the next category
-
 
 def get_product_details_per_language(slug, lang):
     # Define the URL for the GraphQL endpoint with the store as a query param
@@ -283,7 +279,7 @@ def fetch_product_details(slug, output_file, todays_date):
         source_type = "Website"
         categories_eng = product_details_eng.get('categories', [])
         product_id = product_details_eng.get('id')
-        brand_details_eng = product_details_eng.get('brand', {})
+        brand_details_eng = product_details_eng.get('brand', {}) if product_details_eng is not None else {}
         brand_name_in_english = brand_details_eng.get('name', None) if brand_details_eng else None
         product_barcode = product_details_eng.get('sku')
         product_name_in_english = product_details_eng.get('name')
