@@ -2,7 +2,7 @@ from asyncio import sleep
 import requests
 import sys
 import os
-import time  # Import time for delay between restarts
+import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from datetime import datetime
 from scripts.models.Product import Product
@@ -18,6 +18,8 @@ error_log = os.path.join(output_directory, 'error_log.txt')
 
 # Retry mechanism
 MAX_RETRIES = 5
+
+processed_barcodes = set()
 
 # Track progress in a file (so the script can restart from last known state)
 def load_progress():
@@ -340,6 +342,10 @@ def fetch_product_details(slug, output_file, todays_date):
         category_eight_ar = categories_ar[7].get('name') if len(categories_ar) > 7 else None
         category_nine_ar = categories_ar[8].get('name') if len(categories_ar) > 8 else None
         
+    if product_barcode not in processed_barcodes:
+        # Add barcode to the processed set
+        processed_barcodes.add(product_barcode)
+        
         # Create a product instance with both English and Arabic data
         product = Product(
             merchant=merchant_name,
@@ -386,7 +392,7 @@ def fetch_product_details(slug, output_file, todays_date):
 def extract_all_seoudi_product_data(output_file, todays_date):
     extract_products_per_category(output_file, todays_date)
 
-def main():
+def run_seoudi_crawler():
     output_file = os.path.join(output_directory)
     todays_date = datetime.today().strftime('%Y-%m-%d')
 
@@ -400,4 +406,4 @@ def main():
             print(f"Error encountered: {e}. Restarting script in 10 seconds...")
             time.sleep(10)  # Add a delay before restarting the script
 
-main()
+run_seoudi_crawler()

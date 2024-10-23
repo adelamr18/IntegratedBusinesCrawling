@@ -317,7 +317,7 @@ def process_url(url, output_file_name, crawled_date):
     return is_successful
 
 # Main function to run the crawler
-def run_crawler():
+def run_carrefour_crawler():
     crawled_date = datetime.now().strftime('%Y-%m-%d')
     output_file_name = os.path.join(output_directory, f'extracted_products_{crawled_date}.xlsx')
 
@@ -332,4 +332,4 @@ def run_crawler():
             time.sleep(5)  # Wait before retrying
             process_url(url, output_file_name, crawled_date)
 
-run_crawler()
+run_carrefour_crawler()

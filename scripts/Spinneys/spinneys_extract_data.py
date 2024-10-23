@@ -2,14 +2,15 @@ from asyncio import sleep
 import requests
 import sys
 import os
+import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from datetime import datetime
 from scripts.models.Product import Product
 from utils.helpers import write_to_excel
-import requests
 from openpyxl import load_workbook, Workbook
-import requests
 import json
+
+processed_barcodes = set()
 
 # Paths and directories
 base_directory = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
@@ -56,28 +57,32 @@ def extract_products_per_category(output_file, todays_date):
         'NTY=',      # Bakery & Bread
         'Mzg=',      # Cheese, Dairy & Eggs
         'NTU=',      # Cold Cuts & Deli
-        'MTI0',      # Beverages
-        'NTQw',      # Hot drinks
-        'MTQ1',      # Frozen Food
-        'MzU2MQ==',  # Healthy and Nutrition
-        'MjYy',      # Baby Care
-        'MTY2',      # Cleaning And Household
-        'MTk5',      # Beauty And Personal Care
-        'MjM1',      # Home, Kitchen And Garden
-        'MzAx',      # Pet Supplies
-        'MzEz',      # Toys And Activities
-        'Mjgz',      # Electronics And Appliances
-        'NTcyNQ==',  # Back To School Supplies
-        'MzkwMw==',  # Buy In Bulk
-        'MzIxNw=='   # Top Offers
+        'NzI=',      # Beverages
+        'Njc=',      # Frozen Food
+        'ODA=',      # Sweets & Snacks
+        'ODg=',      # Healthy & Specialty
+        'MTgz',      # Pets
+        'MTM4',      # Electronics
+        'MTI5',      # Households
+        'MTI0',      # Baby Products
+        'MTAy',      # Cleaning Products
+        'OTU=',      # Beauty & Personal Care
+        'NzMw',      # Back to School
+        'MzYw'       # Online Deals
     ]
 
     # Define the URL for the GraphQL endpoint
-    url = "https://mcprod.seoudisupermarket.com/graphql"
+    url = "https://spinneys-egypt.com/graphql"
 
     # Define the headers
     headers = {
-        "Content-Type": "application/json"
+        "Content-Language": "en",
+        "Content-Type": "application/json",
+        "Queryname": "Products",
+        "Querytype": "query",
+        "Source": "browser",
+        "Sourcecode": "DOKI",
+        "Store": "default"
     }
 
     # Load progress and retry mechanism additions
@@ -85,85 +90,88 @@ def extract_products_per_category(output_file, todays_date):
     last_slug = progress["last_slug"]  # Keep track of the last slug processed
 
     for category in categories:
-        # Define the payload (query and variables)
+        # Define the payload (updated query and variables)
         payload = {
             "query": """
-            query Products($page: Int, $pageSize: Int, $search: String, $filter: ProductAttributeFilterInput = {}, $sort: ProductAttributeSortInput = {}) {
-                connection: products(currentPage: $page, pageSize: $pageSize, filter: $filter, search: $search, sort: $sort) {
-                    total_count
-                    aggregations {
-                        ...ProductAggregation
-                    }
-                    page_info {
-                        ...PageInfo
-                    }
-                    nodes: items {
-                        ...ProductCard
-                    }
-                }
-            }
-            fragment ProductAggregation on Aggregation {
-                attribute_code
-                label
-                count
-                options {
-                    label
-                    count
-                    value
-                }
-            }
-            fragment PageInfo on SearchResultPageInfo {
-                total_pages
-                current_page
-                page_size
-            }
-            fragment ProductCard on ProductInterface {
-                __typename
-                id
-                name
-                sku
-                special_from_date
-                special_price
-                special_to_date
-                new_from_date
-                new_to_date
-                only_x_left_in_stock
-                url_key
-                weight_increment_step
-                weight_base_unit
-                brand {
-                    name
-                    url_key
-                }
-                categories {
-                    url_path
-                    name
-                    level
-                    max_allowed_qty
-                }
-                thumbnail {
-                    url
-                    label
-                }
-                price_range {
-                    maximum_price {
-                        final_price {
-                            value
-                        }
-                        regular_price {
-                            value
-                        }
-                    }
-                }
-                stockQtyTerm {
-                    max_sale_qty
-                    min_sale_qty
-                }
+            query Products(
+                $page: Int, 
+                $pageSize: Int, 
+                $filter: ProductAttributeFilterInput = {}, 
+                $sort: ProductAttributeSortInput = {}, 
+                $search: String, 
+                $withAggregations: Boolean = false, 
+                $withPaging: Boolean = false, 
+                $withAttributes: Boolean = false
+            ) { 
+                connection: products(
+                    currentPage: $page, 
+                    pageSize: $pageSize, 
+                    filter: $filter, 
+                    sort: $sort, 
+                    search: $search
+                ) { 
+                    aggregations @include(if: $withAggregations) { 
+                        attribute_code 
+                        label 
+                        count 
+                        options { 
+                            label 
+                            count 
+                            value 
+                        } 
+                    } 
+                    page_info @include(if: $withPaging) { 
+                        total_pages 
+                        current_page 
+                        page_size 
+                    } 
+                    total_count 
+                    nodes: items { 
+                        __typename 
+                        id 
+                        name 
+                        new_from_date 
+                        new_to_date 
+                        sku 
+                        special_from_date 
+                        special_price 
+                        special_to_date 
+                        only_x_left_in_stock 
+                        url_key 
+                        brand { 
+                            url_key 
+                        } 
+                        categories { 
+                            id 
+                            url_path 
+                            name 
+                        } 
+                        attributes @include(if: $withAttributes) { 
+                            key 
+                            label 
+                            value 
+                        } 
+                        thumbnail { 
+                            url 
+                            label 
+                        } 
+                        price_range { 
+                            maximum_price { 
+                                final_price { 
+                                    value 
+                                } 
+                                regular_price { 
+                                    value 
+                                } 
+                            } 
+                        } 
+                    } 
+                } 
             }
             """,
             "variables": {
                 "page": 1,
-                "pageSize": 20000,
+                "pageSize": 200000,
                 "sort": {
                     "position": "ASC"
                 },
@@ -171,7 +179,11 @@ def extract_products_per_category(output_file, todays_date):
                     "category_uid": {
                         "eq": category  # Use the current category
                     }
-                }
+                },
+                "withAggregations": True,
+                "withPaging": False,
+                "withAttributes": True,
+                "search": ""  # Include search parameter if needed
             }
         }
 
@@ -201,7 +213,7 @@ def extract_products_per_category(output_file, todays_date):
 
 def get_product_details_per_language(slug, lang):
     # Define the URL for the GraphQL endpoint with the store as a query param
-    details_url = f"https://mcprod.seoudisupermarket.com/graphql?store={lang}"
+    details_url = f"https://spinneys-egypt.com/graphql?store={lang}"
 
     # Define the headers for the details request
     headers = {
@@ -213,33 +225,60 @@ def get_product_details_per_language(slug, lang):
     details_payload = {
         "query": """
         query Product($slug: String!) {
-            product: product(url_key: $slug) {
-                __typename
+            product(url_key: $slug) {
                 id
                 name
                 sku
+                rating_summary
+                review_count
+                meta_title
+                meta_description
                 special_from_date
                 special_price
                 special_to_date
                 new_from_date
                 new_to_date
-                only_x_left_in_stock
-                url_key
-                weight_increment_step
-                weight_base_unit
+                meta_keywords: meta_keyword
                 brand {
                     name
+                    image_url
                     url_key
                 }
+                image {
+                    url
+                    label
+                }
+                media_gallery {
+                    disabled
+                    label
+                    url
+                }
+                short_description {
+                    html
+                }
+                description {
+                    html
+                }
+                attributes {
+                    label
+                    value
+                    key
+                }
                 categories {
-                    url_path
                     name
-                    level
-                    max_allowed_qty
+                    url_path
+                }
+                size_chart {
+                    name
+                    image
                 }
                 thumbnail {
                     url
                     label
+                }
+                brand {
+                    name
+                    url_key
                 }
                 price_range {
                     maximum_price {
@@ -251,10 +290,7 @@ def get_product_details_per_language(slug, lang):
                         }
                     }
                 }
-                stockQtyTerm {
-                    max_sale_qty
-                    min_sale_qty
-                }
+                product_featured_attributes
             }
         }
         """,
@@ -264,10 +300,11 @@ def get_product_details_per_language(slug, lang):
     }
 
     # Send the POST request for product details
-    return requests.post(details_url, headers=headers, json=details_payload)     
+    return requests.post(details_url, headers=headers, json=details_payload)
+    
 
 def fetch_product_details(slug, output_file, todays_date):
-    output_file_name = os.path.join(output_file, f"seoudi_extract_data_{todays_date}.xlsx")
+    output_file_name = os.path.join(output_file, f"spinneys_extract_data_{todays_date}.xlsx")
     
     # Fetch product details in English
     product_details_in_english = get_product_details_per_language(slug, "default")
@@ -275,20 +312,23 @@ def fetch_product_details(slug, output_file, todays_date):
     # Process the English response if the request is successful
     if product_details_in_english and product_details_in_english.status_code == 200:
         product_details_eng = product_details_in_english.json().get('data', {}).get('product', {})
-        merchant_name = "Seoudi"
+        merchant_name = "Spinneys"
         source_type = "Website"
         categories_eng = product_details_eng.get('categories', [])
         product_id = product_details_eng.get('id')
         brand_details_eng = product_details_eng.get('brand', {}) if product_details_eng is not None else {}
-        brand_name_in_english = brand_details_eng.get('name', None) if brand_details_eng else None
+        brand_name_in_english = brand_details_eng.get("name") if brand_details_eng is not None else None
+
+        # Extract all required English fields
         product_barcode = product_details_eng.get('sku')
         product_name_in_english = product_details_eng.get('name')
         offer_start_date = product_details_eng.get('special_from_date', None)
         offer_end_date = product_details_eng.get('special_to_date', None)
+        
 
         # Get price_before_offer
         price_before_offer = product_details_eng.get('price_range', {}).get('maximum_price', {}).get('regular_price', {}).get('value', None)
-        
+
         # Check price_after_offer
         price_after_offer = product_details_eng.get('price_range', {}).get('maximum_price', {}).get('final_price', {}).get('value', None)
         if price_after_offer == price_before_offer:
@@ -297,7 +337,7 @@ def fetch_product_details(slug, output_file, todays_date):
             offer_end_date = None
 
         product_image_url = product_details_eng.get('thumbnail', {}).get('url', None)
-        product_url = f"https://seoudisupermarket.com/en/{product_details_eng.get('url_key')}"
+        product_url = f"https://spinneys-egypt.com/en/{slug}"
 
         # Fetch product categories in English
         category_one_eng = categories_eng[0].get('name') if len(categories_eng) > 0 else None
@@ -339,6 +379,10 @@ def fetch_product_details(slug, output_file, todays_date):
         category_eight_ar = categories_ar[7].get('name') if len(categories_ar) > 7 else None
         category_nine_ar = categories_ar[8].get('name') if len(categories_ar) > 8 else None
         
+    if product_barcode not in processed_barcodes:
+        # Add barcode to the processed set
+        processed_barcodes.add(product_barcode)
+         
         # Create a product instance with both English and Arabic data
         product = Product(
             merchant=merchant_name,
@@ -382,46 +426,85 @@ def fetch_product_details(slug, output_file, todays_date):
     else:
         log_error(f"Error fetching details for slug {slug}: {product_details_in_english.status_code if product_details_in_english else 'No response'}")
 
+def extract_discounted_products(output_file, todays_date):
+    url = "https://spinneys-egypt.com/graphql"
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "query": """
+        query DiscountedProducts($page: Int, $pageSize: Int) {
+            connection: products(currentPage: $page, pageSize: $pageSize, filter: {
+                special_price: { gt: 0 }
+            }) {
+                nodes {
+                    ...ProductCard
+                }
+            }
+        }
+        fragment ProductCard on ProductInterface {
+            id
+            name
+            sku
+            special_price
+            special_from_date
+            special_to_date
+            url_key
+            price_range {
+                maximum_price {
+                    final_price {
+                        value
+                    }
+                    regular_price {
+                        value
+                    }
+                }
+            }
+        }
+        """,
+        "variables": {
+            "page": 1,
+            "pageSize": 20000
+        }
+    }
+
+    # Send the POST request for fetching discounted products
+    response = retry_request(requests.post, url, headers=headers, json=payload)
+
+    if response and response.status_code == 200:
+        discounted_products = response.json().get('data', {}).get('connection', {}).get('nodes', [])
+
+        for product in discounted_products:
+            slug = product.get('url_key')
+            if slug:
+                # Fetch product details for discounted products
+                fetch_product_details(slug, output_file, todays_date)
+    else:
+        log_error(f"Error fetching discounted products: {response.status_code} {response.text if response else 'No response'}")
+
+
 def extract_all_spinneys_product_data(output_file, todays_date):
     extract_products_per_category(output_file, todays_date)
-    
-def merge_excel_files(file1, file2, file3, output_file):
-    # Create a new workbook for the merged output
-    output_wb = Workbook()
-    output_ws = output_wb.active
 
-    # Function to append data from each workbook
-    def append_data_from_file(file_path, skip_first_row=False):
-        wb = load_workbook(file_path)
-        ws = wb.active
-        for i, row in enumerate(ws.iter_rows(values_only=True)):
-            # Skip the first row for the second and third files
-            if i == 0 and skip_first_row:
-                continue
-            output_ws.append(row)
+def run_spinneys_crawler():
+    output_file = os.path.join(output_directory)
+    todays_date = datetime.today().strftime('%Y-%m-%d')
 
-    # Merge the first file without skipping any rows
-    append_data_from_file(file1, skip_first_row=False)
+    while True:  # Infinite loop to automatically restart the script
+        try:
+            extract_all_spinneys_product_data(output_file, todays_date)
+            extract_discounted_products(output_file, todays_date)
+            print("Data extraction completed successfully.")
+            break  # Exit the loop if successful
+        except Exception as e:
+            log_error(f"Unexpected error: {e}")
+            print(f"Error encountered: {e}. Restarting script in 10 seconds...")
+            time.sleep(10)  # Add a delay before restarting the script
 
-    # Merge the second and third files, skipping the first row
-    append_data_from_file(file2, skip_first_row=True)
-    append_data_from_file(file3, skip_first_row=True)
+run_spinneys_crawler()
 
-    # Save the merged workbook
-    output_wb.save(output_file)
 
-# Paths to the input Excel files
-file1 = os.path.join(output_directory, 'seoudi_extract_data_10_10_2024.xlsx')
-file2 = os.path.join(output_directory, 'seoudi_extract_data_11_10_2024.xlsx')
-file3 = os.path.join(output_directory, 'seoudi_extract_data_12_10_2024.xlsx')
 
-# Output file path
-output_file = os.path.join(output_directory, 'seoudi_all_products.xlsx')
 
-# Merge the files
-# merge_excel_files(file1, file2, file3, output_file)
-# print(f"Files merged and saved to {output_file}")    
-
-# Call the function to extract data
-todays_date = datetime.now().strftime('%d_%m_%Y')
-extract_all_spinneys_product_data(output_directory, todays_date)
