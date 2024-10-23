@@ -31,6 +31,10 @@ def load_progress():
 def save_progress(category, slug):
     with open(progress_log, 'w') as file:
         json.dump({"last_category": category, "last_slug": slug}, file)
+        
+def save_last_slug(progress_file, last_slug):
+    with open(progress_file, 'w') as file:
+        json.dump({'last_slug': last_slug}, file)        
 
 def log_error(message):
     with open(error_log, 'a') as file:
@@ -44,6 +48,12 @@ def retry_request(func, *args, retries=MAX_RETRIES, **kwargs):
             log_error(f"Error: {e}. Retrying {attempt}/{retries}...")
             sleep(2 ** attempt)  # Exponential backoff
     log_error(f"Failed after {retries} attempts.")
+    return None
+
+def load_last_slug(progress_file):
+    if os.path.exists(progress_file):
+        with open(progress_file, 'r') as file:
+            return json.load(file).get('last_slug', None)
     return None
 
 def extract_products_per_category(output_file, todays_date):
@@ -427,63 +437,226 @@ def fetch_product_details(slug, output_file, todays_date):
         log_error(f"Error fetching details for slug {slug}: {product_details_in_english.status_code if product_details_in_english else 'No response'}")
 
 def extract_discounted_products(output_file, todays_date):
+    # Define the GraphQL endpoint
     url = "https://spinneys-egypt.com/graphql"
 
+    # Define the headers
     headers = {
-        "Content-Type": "application/json"
+        "Content-Language": "en",
+        "Content-Type": "application/json",
+        "Queryname": "DiscountedProducts",
+        "Querytype": "query",
+        "Source": "browser",
+        "Sourcecode": "DOKI",
+        "Store": "default"
     }
 
-    payload = {
-        "query": """
-        query DiscountedProducts($page: Int, $pageSize: Int) {
-            connection: products(currentPage: $page, pageSize: $pageSize, filter: {
-                special_price: { gt: 0 }
-            }) {
-                nodes {
-                    ...ProductCard
+    page = 1
+    page_size = 12  
+    has_more_products = True
+    progress_file = 'extractions/spinneys/progress_discounted_price.json'    
+    # Load the last processed slug
+    last_slug = load_last_slug(progress_file)
+    
+    # If last_slug is not None, continue from that slug
+    if last_slug:
+        print(f"Resuming from last slug: {last_slug}")
+    
+    while has_more_products:
+        # Define the payload (data) for the current page
+        payload = {
+            "query": """
+            query DiscountedProducts($page: Int, $pageSize: Int, $filter: ProductAttributeFilterInput = {}, $sort: ProductAttributeSortInput = {}, $withAggregations: Boolean = false, $withPaging: Boolean = false, $withAttributes: Boolean = false) {
+                connection: productDeals(currentPage: $page, pageSize: $pageSize, filter: $filter, sort: $sort) {
+                    aggregations @include(if: $withAggregations) {
+                        ...ProductAggregation
+                    }
+                    page_info @include(if: $withPaging) {
+                        ...PageInfo
+                    }
+                    total_count
+                    nodes: items {
+                        ...ProductCard
+                        attributes @include(if: $withAttributes) {
+                            key
+                            label
+                            value
+                        }
+                    }
                 }
             }
-        }
-        fragment ProductCard on ProductInterface {
-            id
-            name
-            sku
-            special_price
-            special_from_date
-            special_to_date
-            url_key
-            price_range {
-                maximum_price {
-                    final_price {
-                        value
+            fragment ProductAggregation on Aggregation {
+                attribute_code
+                label
+                count
+                options {
+                    label
+                    count
+                    value
+                }
+            }
+            fragment PageInfo on SearchResultPageInfo {
+                total_pages
+                current_page
+                page_size
+            }
+            fragment ProductCard on ProductInterface {
+                __typename
+                id
+                name
+                new_from_date
+                new_to_date
+                sku
+                special_from_date
+                special_price
+                special_to_date
+                only_x_left_in_stock
+                url_key
+                brand {
+                    url_key
+                }
+                categories {
+                    id
+                    url_path
+                    name
+                }
+                attributes {
+                    key
+                    label
+                    value
+                }
+                thumbnail {
+                    url
+                    label
+                }
+                price_range {
+                    maximum_price {
+                        final_price {
+                            value
+                        }
+                        regular_price {
+                            value
+                        }
                     }
-                    regular_price {
-                        value
+                }
+                categories {
+                    url_path
+                    section
+                }
+                ...CartControl
+                ... on ConfigurableProduct {
+                    variants {
+                        attributes {
+                            code
+                            # uid removed
+                        }
+                        product {
+                            __typename
+                            name
+                            sku
+                            special_from_date
+                            special_price
+                            special_to_date
+                            only_x_left_in_stock
+                            price_range {
+                                maximum_price {
+                                    final_price {
+                                        value
+                                    }
+                                    regular_price {
+                                        value
+                                    }
+                                }
+                            }
+                            image {
+                                url
+                                label
+                            }
+                            url_key
+                        }
+                    }
+                    configurable_options {
+                        uid
+                        attribute_code
+                        values {
+                            swatch_data {
+                                value
+                                # uid removed
+                            }
+                        }
+                    }
+                }
+                ... on BundleProduct {
+                    items {
+                        options {
+                            uid
+                        }
                     }
                 }
             }
+            fragment CartControl on ProductInterface {
+                cart_control {
+                    increment_step
+                    max_amount
+                    min_amount
+                    unit
+                }
+            }
+            """,
+            "variables": {
+                "page": page,
+                "pageSize": page_size,
+                "sort": {"position": "ASC"},
+                "filter": {},
+                "withAggregations": True,
+                "withPaging": True,
+                "search": ""
+            }
         }
-        """,
-        "variables": {
-            "page": 1,
-            "pageSize": 20000
-        }
-    }
 
-    # Send the POST request for fetching discounted products
-    response = retry_request(requests.post, url, headers=headers, json=payload)
+        # Send the POST request for fetching discounted products
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            if response.status_code == 200:
+                try:
+                    response_data = response.json()  # Correctly parse the JSON response
+                    discounted_products = response_data.get('data', {}).get('connection', {}).get('nodes', [])
 
-    if response and response.status_code == 200:
-        discounted_products = response.json().get('data', {}).get('connection', {}).get('nodes', [])
+                    # Check if the last slug is in the current batch of products
+                    if last_slug:
+                        found_last_slug = False
+                        for product in discounted_products:
+                            slug = product.get('url_key')
+                            if slug == last_slug:
+                                found_last_slug = True
+                            if found_last_slug and slug:
+                                fetch_product_details(slug, output_file, todays_date)
+                                save_last_slug(progress_file, slug)  # Save the last processed slug
+                    else:
+                        # Process each product normally
+                        for product in discounted_products:
+                            slug = product.get('url_key')
+                            if slug:
+                                fetch_product_details(slug, output_file, todays_date)
+                                save_last_slug(progress_file, slug)  # Save the last processed slug
 
-        for product in discounted_products:
-            slug = product.get('url_key')
-            if slug:
-                # Fetch product details for discounted products
-                fetch_product_details(slug, output_file, todays_date)
-    else:
-        log_error(f"Error fetching discounted products: {response.status_code} {response.text if response else 'No response'}")
+                    # Check if there are more products to fetch
+                    total_count = response_data.get('data', {}).get('connection', {}).get('total_count', 0)
+                    if len(discounted_products) < page_size or len(discounted_products) >= total_count:
+                        has_more_products = False 
+                    else:
+                        page += 1  # Increment page for the next iteration
+                except json.JSONDecodeError:
+                    print("Error parsing response JSON:", response.text)
+            else:
+                print("Error Response Body:", response.text)  # Log the raw response for debugging
+                log_error(f"Error fetching discounted products: {response.status_code} {response.text}")
 
+        except Exception as e:
+            print("Exception occurred while making request:", e)
+            # Optional: Implement retry logic here
+            time.sleep(5)  # Wait for 5 seconds before retrying
+            continue  # Restart the loop
 
 def extract_all_spinneys_product_data(output_file, todays_date):
     extract_products_per_category(output_file, todays_date)
@@ -504,7 +677,3 @@ def run_spinneys_crawler():
             time.sleep(10)  # Add a delay before restarting the script
 
 run_spinneys_crawler()
-
-
-
-

@@ -4,29 +4,16 @@ from selenium.webdriver.firefox.options import Options
 import os
 from openpyxl import Workbook, load_workbook
 from openpyxl import Workbook, load_workbook
+from webdriver_manager.firefox import GeckoDriverManager
 
 import os
 # Initialize the Firefox driver
 def driver_initialize():
     firefox_options = Options()
     firefox_options.headless = True  # Run in headless mode (no browser UI)
-    firefox_options.binary_location = r"C:\Program Files\Mozilla Firefox\firefox.exe"
-    
-    # Create a Firefox profile
-    profile = webdriver.FirefoxProfile()
-
-    # Disable images in the profile
-    profile.set_preference("permissions.default.image", 2)
-
-    # Disable JavaScript in the profile
-    profile.set_preference("javascript.enabled", False)
-
-    # Set the geckodriver executable path
-    service = Service(executable_path=r'geckodriver.exe')
-
-    # Initialize the Firefox driver with the profile and options
-    driver = webdriver.Firefox(service=service, options=firefox_options, firefox_profile=profile)
-
+    firefox_options.binary_location = '/Applications/Firefox.app/Contents/MacOS/firefox'
+    service = Service(GeckoDriverManager().install())
+    driver = webdriver.Firefox(service=service, options=firefox_options)
     return driver
 
 
@@ -72,40 +59,4 @@ def write_to_excel(output_file_name, product):
     ])
     
     workbook.save(output_file_name)
-    
-def merge_excel_files(file1, file2, file3, output_file):
-    # Create a new workbook for the merged output
-    output_wb = Workbook()
-    output_ws = output_wb.active
-
-    # Function to append data from each workbook
-    def append_data_from_file(file_path, skip_first_row=False):
-        wb = load_workbook(file_path)
-        ws = wb.active
-        for i, row in enumerate(ws.iter_rows(values_only=True)):
-            # Skip the first row for the second and third files
-            if i == 0 and skip_first_row:
-                continue
-            output_ws.append(row)
-
-    # Merge the first file without skipping any rows
-    append_data_from_file(file1, skip_first_row=False)
-
-    # Merge the second and third files, skipping the first row
-    append_data_from_file(file2, skip_first_row=True)
-    append_data_from_file(file3, skip_first_row=True)
-
-    # Save the merged workbook
-    output_wb.save(output_file)
-
-# Paths to the input Excel files
-# file1 = os.path.join(output_directory, 'seoudi_extract_data_10_10_2024.xlsx')
-# file2 = os.path.join(output_directory, 'seoudi_extract_data_11_10_2024.xlsx')
-# file3 = os.path.join(output_directory, 'seoudi_extract_data_12_10_2024.xlsx')
-
-# # Output file path
-# output_file = os.path.join(output_directory, 'seoudi_all_products.xlsx')
-
-# Merge the files
-# merge_excel_files(file1, file2, file3, output_file)
-# print(f"Files merged and saved to {output_file}")      
+         
