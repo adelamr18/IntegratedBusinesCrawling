@@ -61,7 +61,7 @@ def extract_products_per_category(output_file, todays_date):
     categories = [
         'Mw==',      # Spinneys products
         'Mjk1',      # Fruits & Vegetables
-        'Mjk4',      # Meat & Poultry
+        'Mjk8',      # Meat & Poultry
         'NjY=',      # Seafood & Fish
         'OQ==',      # Grocery
         'NTY=',      # Bakery & Bread
@@ -100,126 +100,147 @@ def extract_products_per_category(output_file, todays_date):
     last_slug = progress["last_slug"]  # Keep track of the last slug processed
 
     for category in categories:
-        # Define the payload (updated query and variables)
-        payload = {
-            "query": """
-            query Products(
-                $page: Int, 
-                $pageSize: Int, 
-                $filter: ProductAttributeFilterInput = {}, 
-                $sort: ProductAttributeSortInput = {}, 
-                $search: String, 
-                $withAggregations: Boolean = false, 
-                $withPaging: Boolean = false, 
-                $withAttributes: Boolean = false
-            ) { 
-                connection: products(
-                    currentPage: $page, 
-                    pageSize: $pageSize, 
-                    filter: $filter, 
-                    sort: $sort, 
-                    search: $search
+        page = 1  # Start from the first page for each category
+        page_size = 100  # Set the page size to 100
+        total_retrieved = 0  # Track the total products retrieved for this category
+        has_more_products = True
+
+        while has_more_products:
+            # Define the payload (updated query and variables)
+            payload = {
+                "query": """
+                query Products(
+                    $page: Int, 
+                    $pageSize: Int, 
+                    $filter: ProductAttributeFilterInput = {}, 
+                    $sort: ProductAttributeSortInput = {}, 
+                    $search: String, 
+                    $withAggregations: Boolean = false, 
+                    $withPaging: Boolean = false, 
+                    $withAttributes: Boolean = false
                 ) { 
-                    aggregations @include(if: $withAggregations) { 
-                        attribute_code 
-                        label 
-                        count 
-                        options { 
+                    connection: products(
+                        currentPage: $page, 
+                        pageSize: $pageSize, 
+                        filter: $filter, 
+                        sort: $sort, 
+                        search: $search
+                    ) { 
+                        aggregations @include(if: $withAggregations) { 
+                            attribute_code 
                             label 
                             count 
-                            value 
+                            options { 
+                                label 
+                                count 
+                                value 
+                            } 
                         } 
-                    } 
-                    page_info @include(if: $withPaging) { 
-                        total_pages 
-                        current_page 
-                        page_size 
-                    } 
-                    total_count 
-                    nodes: items { 
-                        __typename 
-                        id 
-                        name 
-                        new_from_date 
-                        new_to_date 
-                        sku 
-                        special_from_date 
-                        special_price 
-                        special_to_date 
-                        only_x_left_in_stock 
-                        url_key 
-                        brand { 
-                            url_key 
+                        page_info @include(if: $withPaging) { 
+                            total_pages 
+                            current_page 
+                            page_size 
                         } 
-                        categories { 
+                        total_count 
+                        nodes: items { 
+                            __typename 
                             id 
-                            url_path 
                             name 
-                        } 
-                        attributes @include(if: $withAttributes) { 
-                            key 
-                            label 
-                            value 
-                        } 
-                        thumbnail { 
-                            url 
-                            label 
-                        } 
-                        price_range { 
-                            maximum_price { 
-                                final_price { 
-                                    value 
-                                } 
-                                regular_price { 
-                                    value 
+                            new_from_date 
+                            new_to_date 
+                            sku 
+                            special_from_date 
+                            special_price 
+                            special_to_date 
+                            only_x_left_in_stock 
+                            url_key 
+                            brand { 
+                                url_key 
+                            } 
+                            categories { 
+                                id 
+                                url_path 
+                                name 
+                            } 
+                            attributes @include(if: $withAttributes) { 
+                                key 
+                                label 
+                                value 
+                            } 
+                            thumbnail { 
+                                url 
+                                label 
+                            } 
+                            price_range { 
+                                maximum_price { 
+                                    final_price { 
+                                        value 
+                                    } 
+                                    regular_price { 
+                                        value 
+                                    } 
                                 } 
                             } 
                         } 
                     } 
-                } 
+                }
+                """,
+                "variables": {
+                    "page": page,
+                    "pageSize": page_size,
+                    "sort": {
+                        "position": "ASC"
+                    },
+                    "filter": {
+                        "category_uid": {
+                            "eq": category  # Use the current category
+                        }
+                    },
+                    "withAggregations": True,
+                    "withPaging": False,
+                    "withAttributes": True,
+                    "search": ""  # Include search parameter if needed
+                }
             }
-            """,
-            "variables": {
-                "page": 1,
-                "pageSize": 200000,
-                "sort": {
-                    "position": "ASC"
-                },
-                "filter": {
-                    "category_uid": {
-                        "eq": category  # Use the current category
-                    }
-                },
-                "withAggregations": True,
-                "withPaging": False,
-                "withAttributes": True,
-                "search": ""  # Include search parameter if needed
-            }
-        }
 
-        # Send the POST request and retry if necessary
-        response = retry_request(requests.post, url, headers=headers, json=payload)
+            # Send the POST request and retry if necessary
+            response = retry_request(requests.post, url, headers=headers, json=payload)
 
-        if response and response.status_code == 200:
-            products = response.json().get('data', {}).get('connection', {}).get('nodes', [])
-
-            for product in products:
-                url_key = product.get('url_key')
-
-                # Check if we should start processing products
-                if last_slug and url_key == last_slug:
-                    last_slug = None  # Clear the slug to continue processing new products
+            if response and response.status_code == 200:
+                response_data = response.json()
+                connection_data = response_data.get('data', {}).get('connection', None)
+                if connection_data is not None:
+                 products = connection_data.get('nodes', [])
+                 total_count = response.json().get('data', {}).get('connection', {}).get('total_count', 0)
                 
-                if last_slug is None:  # Only process products if we haven't reached the last_slug
-                    if url_key:
-                        # Call the details endpoint with the url_key as slug
-                        fetch_product_details(url_key, output_file, todays_date)
-                        # Save progress after processing each product
-                        save_progress(category, url_key)
+                # Update the total retrieved products
+                total_retrieved += len(products)
+                print(f'for category: {category} total retrieved is {total_retrieved}')
 
-        else:
-            log_error(f"Error for category {category}: {response.status_code} {response.text if response else 'No response'}")
-            continue  # Move to the next category
+                for product in products:
+                    url_key = product.get('url_key')
+
+                    # Check if we should start processing products
+                    if last_slug and url_key == last_slug:
+                        last_slug = None  # Clear the slug to continue processing new products
+                    
+                    if last_slug is None:  # Only process products if we haven't reached the last_slug
+                        if url_key:
+                            # Call the details endpoint with the url_key as slug
+                            fetch_product_details(url_key, output_file, todays_date)
+                            # Save progress after processing each product
+                            save_progress(category, url_key)
+
+                # Determine if there are more products to fetch
+                if total_retrieved >= total_count:
+                    has_more_products = False  # All products have been retrieved
+                else:
+                    page += 1  # Increment page number for next batch of products
+
+            else:
+                log_error(f"Error for category {category}: {response.status_code} {response.text if response else 'No response'}")
+                break  # Move to the next category
+
 
 def get_product_details_per_language(slug, lang):
     # Define the URL for the GraphQL endpoint with the store as a query param
@@ -452,8 +473,10 @@ def extract_discounted_products(output_file, todays_date):
     }
 
     page = 1
-    page_size = 12  
+    page_size = 100  # Set the page size (you can adjust as needed)
+    total_retrieved = 0  # Track total number of products retrieved
     has_more_products = True
+
     progress_file = 'extractions/spinneys/progress_discounted_price.json'    
     # Load the last processed slug
     last_slug = load_last_slug(progress_file)
@@ -548,7 +571,6 @@ def extract_discounted_products(output_file, todays_date):
                     variants {
                         attributes {
                             code
-                            # uid removed
                         }
                         product {
                             __typename
@@ -575,16 +597,6 @@ def extract_discounted_products(output_file, todays_date):
                             url_key
                         }
                     }
-                    configurable_options {
-                        uid
-                        attribute_code
-                        values {
-                            swatch_data {
-                                value
-                                # uid removed
-                            }
-                        }
-                    }
                 }
                 ... on BundleProduct {
                     items {
@@ -605,7 +617,10 @@ def extract_discounted_products(output_file, todays_date):
             """,
             "variables": {
                 "page": page,
-                "pageSize": page_size,
+                "pageSize": # The code `page_size` appears to be a variable declaration in Python, but
+                # it is not assigned any value. It is simply declaring a variable named
+                # `page_size` without initializing it.
+                page_size,
                 "sort": {"position": "ASC"},
                 "filter": {},
                 "withAggregations": True,
@@ -621,6 +636,11 @@ def extract_discounted_products(output_file, todays_date):
                 try:
                     response_data = response.json()  # Correctly parse the JSON response
                     discounted_products = response_data.get('data', {}).get('connection', {}).get('nodes', [])
+                    total_count = response_data.get('data', {}).get('connection', {}).get('total_count', 0)
+
+                    # Update the total number of products retrieved
+                    total_retrieved += len(discounted_products)
+                    print(f'total discounted products retrieved are: {total_retrieved}')
 
                     # Check if the last slug is in the current batch of products
                     if last_slug:
@@ -640,12 +660,12 @@ def extract_discounted_products(output_file, todays_date):
                                 fetch_product_details(slug, output_file, todays_date)
                                 save_last_slug(progress_file, slug)  # Save the last processed slug
 
-                    # Check if there are more products to fetch
-                    total_count = response_data.get('data', {}).get('connection', {}).get('total_count', 0)
-                    if len(discounted_products) < page_size or len(discounted_products) >= total_count:
-                        has_more_products = False 
+                    # Determine if there are more products to fetch
+                    if total_retrieved >= total_count:
+                        has_more_products = False  # Stop fetching as all products have been retrieved
                     else:
-                        page += 1  # Increment page for the next iteration
+                        page += 1  # Increment the page number for the next iteration
+
                 except json.JSONDecodeError:
                     print("Error parsing response JSON:", response.text)
             else:
