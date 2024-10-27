@@ -1,6 +1,21 @@
-
-from openpyxl import Workbook, load_workbook
+from selenium import webdriver
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.firefox.options import Options
 import os
+from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook, load_workbook
+from webdriver_manager.firefox import GeckoDriverManager
+
+import os
+# Initialize the Firefox driver
+def driver_initialize():
+    firefox_options = Options()
+    firefox_options.headless = True  # Run in headless mode (no browser UI)
+    firefox_options.binary_location = '/Applications/Firefox.app/Contents/MacOS/firefox'
+    service = Service(GeckoDriverManager().install())
+    driver = webdriver.Firefox(service=service, options=firefox_options)
+    return driver
+
 
 def convert_url_to_arabic(url):
     return url.replace('/en/', '/ar/')
@@ -44,3 +59,4 @@ def write_to_excel(output_file_name, product):
     ])
     
     workbook.save(output_file_name)
+         
