@@ -256,6 +256,11 @@ def get_product_details_per_language(slug, lang):
                     max_sale_qty
                     min_sale_qty
                 }
+                attributes {
+                    key
+                    label
+                    value
+                }
             }
         }
         """,
@@ -288,6 +293,16 @@ def fetch_product_details(slug, output_file, todays_date):
         product_name_in_english = product_details_eng.get('name')
         offer_start_date = product_details_eng.get('special_from_date', None)
         offer_end_date = product_details_eng.get('special_to_date', None)
+        
+        # Get additional attributes
+        attributes = product_details_eng.get("attributes", [])
+        alternative_skus = next((attr.get("value") for attr in attributes if attr.get("key") == "alternative_skus"), None)
+        product_barcode_str = product_barcode
+        
+        if alternative_skus and alternative_skus != product_barcode:
+            product_barcode_str = f"{product_barcode}, {alternative_skus}"
+            
+        product_barcode = product_barcode_str    
 
         # Get price_before_offer
         price_before_offer = product_details_eng.get('price_range', {}).get('maximum_price', {}).get('regular_price', {}).get('value', None)
@@ -407,3 +422,4 @@ def run_seoudi_crawler():
             time.sleep(10)  # Add a delay before restarting the script
 
 run_seoudi_crawler()
+
