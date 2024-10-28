@@ -448,7 +448,8 @@ def fetch_product_details(slug, output_file, todays_date):
             category_seven_ar=category_seven_ar,
             category_eight_ar=category_eight_ar,
             category_nine_ar=category_nine_ar,
-            crawled_on=todays_date
+            crawled_on=todays_date,
+            brand_image_url= "get the image url from v look up"
         )
 
         # Write the product details to an Excel file
