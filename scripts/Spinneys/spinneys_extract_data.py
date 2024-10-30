@@ -333,7 +333,81 @@ def get_product_details_per_language(slug, lang):
     # Send the POST request for product details
     return requests.post(details_url, headers=headers, json=details_payload)
     
+brand_lookup = {}
 
+def fetch_brands():
+    """Fetch brands for each letter of the alphabet and populate the lookup table."""
+    url = "https://spinneys-egypt.com/graphql"
+    
+    # Set parameters for the loop
+    page_size = 100  # Number of brands per page
+    total_pages = 1   # Initialize total_pages for the loop
+    alphabet = "abcdefghijklmnopqrstuvwxyz"
+
+    # Headers for the GraphQL request
+    headers = {
+        "Content-Type": "application/json",
+        "Source": "DOKI",
+        "Store": "default"
+    }
+
+    for alpha in alphabet:
+        current_page = 1  # Reset to the first page for each letter
+        total_pages = 1    # Reset total pages for the letter
+
+        while current_page <= total_pages:
+            # Define the payload for fetching brands for the current letter
+            payload = {
+                "query": """
+                query SearchBrands($pageSize: Int, $currentPage: Int, $alpha: String) {
+                    brands(
+                        filter: { name: { matchAlpha: $alpha } },
+                        sort: { slider_sort_order: ASC, name: ASC },
+                        pageSize: $pageSize,
+                        currentPage: $currentPage
+                    ) {
+                        items {
+                            name
+                            image_url
+                            url_key
+                        }
+                        page_info {
+                            current_page
+                            page_size
+                            total_pages
+                        }
+                    }
+                }
+                """,
+                "variables": {
+                    "pageSize": page_size,
+                    "currentPage": current_page,
+                    "alpha": alpha
+                }
+            }
+
+            # Make the POST request to fetch brand data
+            response = requests.post(url, headers=headers, json=payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                brands = data.get("data", {}).get("brands", {}).get("items", [])
+                
+                # Populate the lookup dictionary
+                for brand in brands:
+                    name = brand.get("name", "").lower().replace(" ", "")
+                    image_url = brand.get("image_url")
+                    if name and image_url:
+                        brand_lookup[name] = image_url
+                
+                # Update pagination info
+                page_info = data.get("data", {}).get("brands", {}).get("page_info", {})
+                current_page = page_info.get("current_page", 1) + 1
+                total_pages = page_info.get("total_pages", 1)
+            else:
+                print(f"Failed to fetch brands data for '{alpha}': {response.status_code}")
+                break
+            
 def fetch_product_details(slug, output_file, todays_date):
     output_file_name = os.path.join(output_file, f"spinneys_extract_data_{todays_date}.xlsx")
     
@@ -355,7 +429,10 @@ def fetch_product_details(slug, output_file, todays_date):
         product_name_in_english = product_details_eng.get('name')
         offer_start_date = product_details_eng.get('special_from_date', None)
         offer_end_date = product_details_eng.get('special_to_date', None)
-        
+        brand_image_url = ""
+        if brand_name_in_english:
+         brand_image_url = brand_lookup.get(brand_name_in_english.lower().replace(" ", ""), "")
+         print(brand_image_url)
 
         # Get price_before_offer
         price_before_offer = product_details_eng.get('price_range', {}).get('maximum_price', {}).get('regular_price', {}).get('value', None)
@@ -448,7 +525,8 @@ def fetch_product_details(slug, output_file, todays_date):
             category_seven_ar=category_seven_ar,
             category_eight_ar=category_eight_ar,
             category_nine_ar=category_nine_ar,
-            crawled_on=todays_date
+            crawled_on=todays_date,
+            brand_image_url = brand_image_url
         )
 
         # Write the product details to an Excel file
@@ -695,5 +773,6 @@ def run_spinneys_crawler():
             log_error(f"Unexpected error: {e}")
             print(f"Error encountered: {e}. Restarting script in 10 seconds...")
             time.sleep(10)  # Add a delay before restarting the script
-
+            
+fetch_brands()
 run_spinneys_crawler()

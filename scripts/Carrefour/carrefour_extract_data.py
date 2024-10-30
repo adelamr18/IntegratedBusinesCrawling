@@ -300,7 +300,8 @@ def process_url(url, output_file_name, crawled_date):
             url=url,
             image_url=image_url,
             source_type=source_type,
-            crawled_on=crawled_date
+            crawled_on=crawled_date,
+            brand_image_url = ""
         )
 
         write_to_excel(output_file_name, product)

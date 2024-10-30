@@ -39,7 +39,7 @@ def write_to_excel(output_file_name, product):
             'Category 4 AR', 'Category 5 AR', 'Category 6 AR', 'Category 7 AR',
             'Category 8 AR', 'Category 9 AR',  # Additional categories
             'Price before', 'Price after', 'Offer start date', 'Offer end date', 
-            'Url', 'Picture', 'Type', 'Crawled on'
+            'Url', 'Brand Url' ,'Picture', 'Type', 'Crawled on'
         ])
 
     # Append the product data to the sheet
@@ -48,13 +48,13 @@ def write_to_excel(output_file_name, product):
         product.barcode, product.name_ar, product.name_en, product.category_one_eng, 
         product.category_two_eng, product.category_three_eng, product.category_four_eng, 
         product.category_five_eng, product.category_six_eng, product.category_seven_eng, 
-        product.category_eight_eng, product.category_nine_eng,  # Additional categories
+        product.category_eight_eng, product.category_nine_eng,
         product.category_one_ar, product.category_two_ar, product.category_three_ar, 
         product.category_four_ar, product.category_five_ar, product.category_six_ar, 
-        product.category_seven_ar, product.category_eight_ar, product.category_nine_ar,  # Additional categories
+        product.category_seven_ar, product.category_eight_ar, product.category_nine_ar,
         product.price_before, product.price_after, 
         product.offer_start_date, product.offer_end_date, 
-        product.url, product.image_url, 
+        product.url, product.brand_image_url ,product.image_url, 
         product.source_type, product.crawled_on
     ])
     
