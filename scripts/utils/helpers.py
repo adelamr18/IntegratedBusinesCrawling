@@ -10,7 +10,7 @@ import os
 # Initialize the Firefox driver
 def driver_initialize():
     firefox_options = Options()
-    firefox_options.headless = True  # Run in headless mode (no browser UI)
+    firefox_options.headless = True
     firefox_options.binary_location = '/Applications/Firefox.app/Contents/MacOS/firefox'
     service = Service(GeckoDriverManager().install())
     driver = webdriver.Firefox(service=service, options=firefox_options)

@@ -432,7 +432,6 @@ def fetch_product_details(slug, output_file, todays_date):
         brand_image_url = ""
         if brand_name_in_english:
          brand_image_url = brand_lookup.get(brand_name_in_english.lower().replace(" ", ""), "")
-         print(brand_image_url)
 
         # Get price_before_offer
         price_before_offer = product_details_eng.get('price_range', {}).get('maximum_price', {}).get('regular_price', {}).get('value', None)
