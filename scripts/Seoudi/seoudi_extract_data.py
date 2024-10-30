@@ -9,10 +9,9 @@ from scripts.models.Product import Product
 from utils.helpers import write_to_excel
 from openpyxl import load_workbook, Workbook
 import json
-
-# Paths and directories
-base_directory = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
-output_directory = os.path.join(base_directory, 'extractions', 'Seoudi')
+#base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
+base_directory_windows = 'C:\\Users\\DiscoCrawler1\\Desktop\\IntegratedBusinesCrawling'
+output_directory = os.path.join(base_directory_windows, 'extractions', 'Seoudi')
 progress_log = os.path.join(output_directory, 'progress_log.json')
 error_log = os.path.join(output_directory, 'error_log.txt')
 

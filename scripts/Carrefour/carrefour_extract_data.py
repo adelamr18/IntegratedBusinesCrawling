@@ -10,9 +10,9 @@ import json
 import time
 
 # Base directory and paths
-base_directory = 'I:\\Web Crawler Project'
-input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
-output_directory = os.path.join(base_directory, 'extractions', 'Carrefour')
+base_directory_windows = 'C:\\Users\\DiscoCrawler1\\Desktop\\IntegratedBusinesCrawling'
+input_csv_path = os.path.join(base_directory_windows, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
+output_directory = os.path.join(base_directory_windows, 'extractions', 'Carrefour')
 
 # Models and helpers
 from models.Product import Product

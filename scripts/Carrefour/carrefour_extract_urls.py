@@ -11,9 +11,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import re
 from selenium.common.exceptions import NoSuchElementException
 import csv
-
-# Define today's date globally
-today_date = datetime.now().strftime("%Y-%m-%d")  # Global variable for today's date
+from utils.helpers import driver_initialize
 
 def navigate_to_main_category(driver): 
     driver.get('https://www.carrefouregypt.com/mafegy/en/c/NFEGY2300000')
@@ -28,20 +26,22 @@ def navigate_to_main_category(driver):
         first_buton = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="__next"]/div[1]/div[2]/nav/div[1]/div[1]/a')))
         actions.click(first_buton).perform()
         main_category_element = driver.find_element(By.XPATH, f'//*[@id="__next"]/div[1]/div[2]/nav/div[2]/ul[1]/li[{element}]/a/p')
+        #actions.move_to_element(driver.find_elements(By.XPATH, f'//*[@id="__next"]/div[1]/div[2]/nav/div[2]/ul[1]/li[{element}]/a/p')).perform()
         actions.click(main_category_element).perform()
         print(f"level 1 -- Hovered over: {main_category_element.text}")
         main_category_name = main_category_element.text
         actions.click(main_category_element).perform()
         sleep(30)
-        url = driver.current_url
+        url= driver.current_url
         print("Current URL:", url)
         navigate_to_products_list(driver, url)
         url_list = load_whole_page(driver, scroll_position=0, scroll_step=50, delay=0.1)
-        write_to_csv(main_category_name, url_list)  # Change made here to pass the list of URLs
+        write_to_csv(main_category_name , url_list)
         actions.move_to_element(driver.find_element(By.XPATH, '//*[@id="__next"]/div[1]/div[2]/nav/div[1]/div[1]/a')).perform()
     driver.quit()
+       
 
-def navigate_to_products_list(driver, url):
+def navigate_to_products_list(driver , url):
     correct_format_pattern = r"https://www\.carrefouregypt\.com/mafegy/en/c/.*\d+"
     pattern_to_modify = r"(https://www\.carrefouregypt\.com/mafegy/en)/.*/clp_(.*\d+)"
     if re.match(correct_format_pattern, url):
@@ -53,6 +53,8 @@ def navigate_to_products_list(driver, url):
     print(f"new Url:{modified_url} old: {url}")
     driver.get(modified_url)
     return modified_url
+
+
 
 def load_whole_page(driver, scroll_position=0, scroll_step=50, delay=0.1):
     actions = ActionChains(driver)
@@ -72,7 +74,7 @@ def load_whole_page(driver, scroll_position=0, scroll_step=50, delay=0.1):
                 driver.execute_script('document.querySelector(\'[data-testid="trolly-button"]\').click()')
                 print("load clicked")
                 sleep(2)  
-                return load_whole_page(driver, scroll_position=total_height, scroll_step=80, delay=0.1)
+                return load_whole_page(driver,scroll_position=total_height, scroll_step=80, delay=0.1)
         except NoSuchElementException:
             links = get_page_links(driver)
             print("2 Loaded Full Page")
@@ -91,11 +93,7 @@ def get_page_links(driver):
     return item_urls
 
 def write_to_csv(category, urls):
-    # Define the output path for the CSV file
-    output_directory = os.path.join('extractions', 'carrefour')  # Define the output directory
-    os.makedirs(output_directory, exist_ok=True)  # Create the directory if it doesn't exist
-
-    file_name = os.path.join(output_directory, f'extract_carrefour_url_{today_date}.csv')
+    file_name = 'Carrefour_URLs.csv'
 
     # Check if the file exists
     file_exists = os.path.isfile(file_name)
@@ -113,7 +111,7 @@ def write_to_csv(category, urls):
             writer.writerow([category, url])
 
     print(f"URLs have been added to {file_name} successfully!")
-    
+
     pass
 
 def run_specific_categories():
@@ -136,10 +134,11 @@ def run_specific_categories():
         url = item.get('url')
         navigate_to_products_list(driver, url)
         url_list = load_whole_page(driver, scroll_position=0, scroll_step=50, delay=0.1)
-        write_to_csv(name, url_list)
-        
+        write_to_csv(name , url_list)
     pass
+
 driver = driver_initialize()
 
-# navigate_to_products_list(driver , "https://www.carrefouregypt.com/mafegy/en/baby-products/n/c/clp_FEGY1000000")
+#navigate_to_products_list(driver , "https://www.carrefouregypt.com/mafegy/en/baby-products/n/c/clp_FEGY1000000")
+#run_specific_categories()
 navigate_to_main_category(driver)
