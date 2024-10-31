@@ -23,17 +23,18 @@ processed_barcodes = set()
 # Track progress in a file (so the script can restart from last known state)
 def load_progress():
     if os.path.exists(progress_log):
-        with open(progress_log, 'r') as file:
+        with open(progress_log, 'r', encoding='utf-8') as file:
             return json.load(file)
     return {"last_category": None, "last_slug": None}
 
 def save_progress(category, slug):
-    with open(progress_log, 'w') as file:
+    with open(progress_log, 'w', encoding='utf-8') as file:
         json.dump({"last_category": category, "last_slug": slug}, file)
 
 def log_error(message):
-    with open(error_log, 'a') as file:
+    with open(error_log, 'a', encoding='utf-8') as file:
         file.write(f"{datetime.now()}: {message}\n")
+
 
 def retry_request(func, *args, retries=MAX_RETRIES, **kwargs):
     for attempt in range(1, retries + 1):

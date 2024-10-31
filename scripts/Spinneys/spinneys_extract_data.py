@@ -25,20 +25,20 @@ MAX_RETRIES = 5
 # Track progress in a file (so the script can restart from last known state)
 def load_progress():
     if os.path.exists(progress_log):
-        with open(progress_log, 'r') as file:
+        with open(progress_log, 'r', encoding='utf-8') as file:
             return json.load(file)
     return {"last_category": None, "last_slug": None}
 
 def save_progress(category, slug):
-    with open(progress_log, 'w') as file:
+    with open(progress_log, 'w', encoding='utf-8') as file:
         json.dump({"last_category": category, "last_slug": slug}, file)
         
-def save_last_slug(progress_file, last_slug):
-    with open(progress_file, 'w') as file:
-        json.dump({'last_slug': last_slug}, file)        
+def save_last_slug(category, slug):
+    with open(progress_log, 'w', encoding='utf-8') as file:
+        json.dump({"last_category": category, "last_slug": slug}, file)     
 
 def log_error(message):
-    with open(error_log, 'a') as file:
+    with open(error_log, 'a', encoding='utf-8') as file:
         file.write(f"{datetime.now()}: {message}\n")
 
 def retry_request(func, *args, retries=MAX_RETRIES, **kwargs):
@@ -765,7 +765,7 @@ def run_spinneys_crawler():
 
     while True:  # Infinite loop to automatically restart the script
         try:
-            extract_all_spinneys_product_data(output_file, todays_date)
+            #extract_all_spinneys_product_data(output_file, todays_date)
             extract_discounted_products(output_file, todays_date)
             print("Data extraction completed successfully.")
             break  # Exit the loop if successful
