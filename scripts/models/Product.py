@@ -6,7 +6,7 @@ class Product:
                  category_four_ar, category_five_ar, category_six_ar, category_seven_ar,
                  category_eight_eng="", category_nine_eng="", category_eight_ar="", category_nine_ar="",
                  price_before="", price_after="", offer_start_date="", offer_end_date="",
-                 url="", image_url="", source_type="", crawled_on=""):
+                 url="", image_url="", source_type="", crawled_on="", brand_image_url = ""):
         self.merchant = merchant
         self.product_id = product_id
         self.brand_ar = brand_ar
@@ -40,3 +40,4 @@ class Product:
         self.image_url = image_url
         self.source_type = source_type
         self.crawled_on = crawled_on
+        self.brand_image_url = brand_image_url

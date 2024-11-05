@@ -13,8 +13,9 @@ import json
 processed_barcodes = set()
 
 # Paths and directories
-base_directory = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
-output_directory = os.path.join(base_directory, 'extractions', 'Spinneys')
+#base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
+base_directory_windows = r'C:\Users\DiscoCrawler1\Desktop\IntegratedBusinesCrawling'
+output_directory = os.path.join(base_directory_windows, 'extractions', 'Spinneys')
 progress_log = os.path.join(output_directory, 'progress_log.json')
 error_log = os.path.join(output_directory, 'error_log.txt')
 
@@ -24,20 +25,20 @@ MAX_RETRIES = 5
 # Track progress in a file (so the script can restart from last known state)
 def load_progress():
     if os.path.exists(progress_log):
-        with open(progress_log, 'r') as file:
+        with open(progress_log, 'r', encoding='utf-8') as file:
             return json.load(file)
     return {"last_category": None, "last_slug": None}
 
 def save_progress(category, slug):
-    with open(progress_log, 'w') as file:
+    with open(progress_log, 'w', encoding='utf-8') as file:
         json.dump({"last_category": category, "last_slug": slug}, file)
         
-def save_last_slug(progress_file, last_slug):
-    with open(progress_file, 'w') as file:
-        json.dump({'last_slug': last_slug}, file)        
+def save_last_slug(category, slug):
+    with open(progress_log, 'w', encoding='utf-8') as file:
+        json.dump({"last_category": category, "last_slug": slug}, file)     
 
 def log_error(message):
-    with open(error_log, 'a') as file:
+    with open(error_log, 'a', encoding='utf-8') as file:
         file.write(f"{datetime.now()}: {message}\n")
 
 def retry_request(func, *args, retries=MAX_RETRIES, **kwargs):
@@ -333,94 +334,185 @@ def get_product_details_per_language(slug, lang):
     # Send the POST request for product details
     return requests.post(details_url, headers=headers, json=details_payload)
     
+brand_lookup = {}
 
+def fetch_brands():
+    """Fetch brands for each letter of the alphabet and populate the lookup table."""
+    url = "https://spinneys-egypt.com/graphql"
+    
+    # Set parameters for the loop
+    page_size = 100  # Number of brands per page
+    total_pages = 1   # Initialize total_pages for the loop
+    alphabet = "abcdefghijklmnopqrstuvwxyz"
+
+    # Headers for the GraphQL request
+    headers = {
+        "Content-Type": "application/json",
+        "Source": "DOKI",
+        "Store": "default"
+    }
+
+    for alpha in alphabet:
+        current_page = 1  # Reset to the first page for each letter
+        total_pages = 1    # Reset total pages for the letter
+
+        while current_page <= total_pages:
+            # Define the payload for fetching brands for the current letter
+            payload = {
+                "query": """
+                query SearchBrands($pageSize: Int, $currentPage: Int, $alpha: String) {
+                    brands(
+                        filter: { name: { matchAlpha: $alpha } },
+                        sort: { slider_sort_order: ASC, name: ASC },
+                        pageSize: $pageSize,
+                        currentPage: $currentPage
+                    ) {
+                        items {
+                            name
+                            image_url
+                            url_key
+                        }
+                        page_info {
+                            current_page
+                            page_size
+                            total_pages
+                        }
+                    }
+                }
+                """,
+                "variables": {
+                    "pageSize": page_size,
+                    "currentPage": current_page,
+                    "alpha": alpha
+                }
+            }
+
+            # Make the POST request to fetch brand data
+            response = requests.post(url, headers=headers, json=payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                brands = data.get("data", {}).get("brands", {}).get("items", [])
+                
+                # Populate the lookup dictionary
+                for brand in brands:
+                    name = brand.get("name", "").lower().replace(" ", "")
+                    image_url = brand.get("image_url")
+                    if name and image_url:
+                        brand_lookup[name] = image_url
+                
+                # Update pagination info
+                page_info = data.get("data", {}).get("brands", {}).get("page_info", {})
+                current_page = page_info.get("current_page", 1) + 1
+                total_pages = page_info.get("total_pages", 1)
+            else:
+                print(f"Failed to fetch brands data for '{alpha}': {response.status_code}")
+                break
+            
 def fetch_product_details(slug, output_file, todays_date):
     output_file_name = os.path.join(output_file, f"spinneys_extract_data_{todays_date}.xlsx")
     
     # Fetch product details in English
     product_details_in_english = get_product_details_per_language(slug, "default")
 
-    # Process the English response if the request is successful
     if product_details_in_english and product_details_in_english.status_code == 200:
-        product_details_eng = product_details_in_english.json().get('data', {}).get('product', {})
+        product_data = product_details_in_english.json()
+        if product_data:
+            product_details_eng = product_data.get('data', {}).get('product', {})
+        else:
+            product_details_eng = {}
+
         merchant_name = "Spinneys"
         source_type = "Website"
-        categories_eng = product_details_eng.get('categories', [])
-        product_id = product_details_eng.get('id')
-        brand_details_eng = product_details_eng.get('brand', {}) if product_details_eng is not None else {}
-        brand_name_in_english = brand_details_eng.get("name") if brand_details_eng is not None else None
 
-        # Extract all required English fields
-        product_barcode = product_details_eng.get('sku')
-        product_name_in_english = product_details_eng.get('name')
-        offer_start_date = product_details_eng.get('special_from_date', None)
-        offer_end_date = product_details_eng.get('special_to_date', None)
+        # Use safe checks for all field extractions
+        categories_eng = product_details_eng.get('categories', []) or []
+        product_id = product_details_eng.get('id') or None
+        brand_details_eng = product_details_eng.get('brand', {}) or {}
+        brand_name_in_english = brand_details_eng.get("name") or None
+
+        # Extract all required English fields with safe checks
+        product_barcode = product_details_eng.get('sku') or None
+        product_name_in_english = product_details_eng.get('name') or None
+        offer_start_date = product_details_eng.get('special_from_date') or None
+        offer_end_date = product_details_eng.get('special_to_date') or None
         
+        # Lookup for brand image URL safely
+        brand_image_url = brand_lookup.get(brand_name_in_english.lower().replace(" ", ""), "") if brand_name_in_english else ""
 
-        # Get price_before_offer
-        price_before_offer = product_details_eng.get('price_range', {}).get('maximum_price', {}).get('regular_price', {}).get('value', None)
-
-        # Check price_after_offer
-        price_after_offer = product_details_eng.get('price_range', {}).get('maximum_price', {}).get('final_price', {}).get('value', None)
+        # Get price_before_offer and check price_after_offer safely
+        price_range = product_details_eng.get('price_range', {})
+        max_price = price_range.get('maximum_price', {})
+        regular_price = max_price.get('regular_price', {})
+        final_price = max_price.get('final_price', {})
+        price_before_offer = regular_price.get('value') if regular_price else None
+        price_after_offer = final_price.get('value') if final_price else None
+        
         if price_after_offer == price_before_offer:
             price_after_offer = None
             offer_start_date = None
             offer_end_date = None
 
-        product_image_url = product_details_eng.get('thumbnail', {}).get('url', None)
+        thumbnail = product_details_eng.get('thumbnail', {})
+        product_image_url = thumbnail.get('url') if thumbnail else None
         product_url = f"https://spinneys-egypt.com/en/{slug}"
 
-        # Fetch product categories in English
-        category_one_eng = categories_eng[0].get('name') if len(categories_eng) > 0 else None
-        category_two_eng = categories_eng[1].get('name') if len(categories_eng) > 1 else None
-        category_three_eng = categories_eng[2].get('name') if len(categories_eng) > 2 else None
-        category_four_eng = categories_eng[3].get('name') if len(categories_eng) > 3 else None
-        category_five_eng = categories_eng[4].get('name') if len(categories_eng) > 4 else None
-        category_six_eng = categories_eng[5].get('name') if len(categories_eng) > 5 else None
-        category_seven_eng = categories_eng[6].get('name') if len(categories_eng) > 6 else None
-        category_eight_eng = categories_eng[7].get('name') if len(categories_eng) > 7 else None
-        category_nine_eng = categories_eng[8].get('name') if len(categories_eng) > 8 else None
-        
+        # Safely fetch product categories in English
+        def safe_get_category_name(categories, index):
+            return categories[index].get('name') if len(categories) > index and categories[index] else None
+
+        category_one_eng = safe_get_category_name(categories_eng, 0)
+        category_two_eng = safe_get_category_name(categories_eng, 1)
+        category_three_eng = safe_get_category_name(categories_eng, 2)
+        category_four_eng = safe_get_category_name(categories_eng, 3)
+        category_five_eng = safe_get_category_name(categories_eng, 4)
+        category_six_eng = safe_get_category_name(categories_eng, 5)
+        category_seven_eng = safe_get_category_name(categories_eng, 6)
+        category_eight_eng = safe_get_category_name(categories_eng, 7)
+        category_nine_eng = safe_get_category_name(categories_eng, 8)
+
         # Fetch product details in Arabic
         product_details_in_arabic = get_product_details_per_language(slug, "ar_EG")
-        
+
         # Initialize Arabic fields to None
         product_name_in_arabic = None
         brand_name_in_arabic = None
         categories_ar = []
 
         if product_details_in_arabic and product_details_in_arabic.status_code == 200:
-            product_details_ar = product_details_in_arabic.json().get('data', {}).get('product', {})
-            
-            # Only access Arabic product details if the response is not None
+            product_data_ar = product_details_in_arabic.json()
+            if product_data_ar:
+                product_details_ar = product_data_ar.get('data', {}).get('product', {})
+            else:
+                product_details_ar = {}
+
             if product_details_ar:
-                product_name_in_arabic = product_details_ar.get('name', None)
-                categories_ar = product_details_ar.get('categories', [])
-                brand_details_ar = product_details_ar.get('brand', {})
-                brand_name_in_arabic = brand_details_ar.get('name', None) if brand_details_ar else None
-        
-        # Fetch product categories in Arabic
-        category_one_ar = categories_ar[0].get('name') if len(categories_ar) > 0 else None
-        category_two_ar = categories_ar[1].get('name') if len(categories_ar) > 1 else None
-        category_three_ar = categories_ar[2].get('name') if len(categories_ar) > 2 else None
-        category_four_ar = categories_ar[3].get('name') if len(categories_ar) > 3 else None
-        category_five_ar = categories_ar[4].get('name') if len(categories_ar) > 4 else None
-        category_six_ar = categories_ar[5].get('name') if len(categories_ar) > 5 else None
-        category_seven_ar = categories_ar[6].get('name') if len(categories_ar) > 6 else None
-        category_eight_ar = categories_ar[7].get('name') if len(categories_ar) > 7 else None
-        category_nine_ar = categories_ar[8].get('name') if len(categories_ar) > 8 else None
-        
-    if product_barcode not in processed_barcodes:
-        # Add barcode to the processed set
+                product_name_in_arabic = product_details_ar.get('name') or None
+                categories_ar = product_details_ar.get('categories', []) or []
+                brand_details_ar = product_details_ar.get('brand', {}) or {}
+                brand_name_in_arabic = brand_details_ar.get('name') or None
+
+        # Safely fetch product categories in Arabic
+        category_one_ar = safe_get_category_name(categories_ar, 0)
+        category_two_ar = safe_get_category_name(categories_ar, 1)
+        category_three_ar = safe_get_category_name(categories_ar, 2)
+        category_four_ar = safe_get_category_name(categories_ar, 3)
+        category_five_ar = safe_get_category_name(categories_ar, 4)
+        category_six_ar = safe_get_category_name(categories_ar, 5)
+        category_seven_ar = safe_get_category_name(categories_ar, 6)
+        category_eight_ar = safe_get_category_name(categories_ar, 7)
+        category_nine_ar = safe_get_category_name(categories_ar, 8)
+
+    if product_barcode and product_barcode not in processed_barcodes:
         processed_barcodes.add(product_barcode)
-         
+        
         # Create a product instance with both English and Arabic data
         product = Product(
             merchant=merchant_name,
             product_id=product_id,
             brand_en=brand_name_in_english,
             brand_ar=brand_name_in_arabic,
-            name_ar=product_name_in_arabic, 
+            name_ar=product_name_in_arabic,
             barcode=product_barcode,
             name_en=product_name_in_english,
             source_type=source_type,
@@ -448,14 +540,15 @@ def fetch_product_details(slug, output_file, todays_date):
             category_seven_ar=category_seven_ar,
             category_eight_ar=category_eight_ar,
             category_nine_ar=category_nine_ar,
-            crawled_on=todays_date
+            crawled_on=todays_date,
+            brand_image_url=brand_image_url
         )
 
         # Write the product details to an Excel file
         write_to_excel(output_file_name, product)
-
     else:
         log_error(f"Error fetching details for slug {slug}: {product_details_in_english.status_code if product_details_in_english else 'No response'}")
+
 
 def extract_discounted_products(output_file, todays_date):
     # Define the GraphQL endpoint
@@ -631,7 +724,7 @@ def extract_discounted_products(output_file, todays_date):
 
         # Send the POST request for fetching discounted products
         try:
-            response = requests.post(url, headers=headers, json=payload)
+            response = retry_request(requests.post, url, headers=headers, json=payload)
             if response.status_code == 200:
                 try:
                     response_data = response.json()  # Correctly parse the JSON response
@@ -695,5 +788,6 @@ def run_spinneys_crawler():
             log_error(f"Unexpected error: {e}")
             print(f"Error encountered: {e}. Restarting script in 10 seconds...")
             time.sleep(10)  # Add a delay before restarting the script
-
+            
+fetch_brands()
 run_spinneys_crawler()

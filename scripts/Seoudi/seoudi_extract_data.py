@@ -9,10 +9,9 @@ from scripts.models.Product import Product
 from utils.helpers import write_to_excel
 from openpyxl import load_workbook, Workbook
 import json
-
-# Paths and directories
-base_directory = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
-output_directory = os.path.join(base_directory, 'extractions', 'Seoudi')
+#base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
+base_directory_windows = 'C:\\Users\\DiscoCrawler1\\Desktop\\IntegratedBusinesCrawling'
+output_directory = os.path.join(base_directory_windows, 'extractions', 'Seoudi')
 progress_log = os.path.join(output_directory, 'progress_log.json')
 error_log = os.path.join(output_directory, 'error_log.txt')
 
@@ -24,17 +23,18 @@ processed_barcodes = set()
 # Track progress in a file (so the script can restart from last known state)
 def load_progress():
     if os.path.exists(progress_log):
-        with open(progress_log, 'r') as file:
+        with open(progress_log, 'r', encoding='utf-8') as file:
             return json.load(file)
     return {"last_category": None, "last_slug": None}
 
 def save_progress(category, slug):
-    with open(progress_log, 'w') as file:
+    with open(progress_log, 'w', encoding='utf-8') as file:
         json.dump({"last_category": category, "last_slug": slug}, file)
 
 def log_error(message):
-    with open(error_log, 'a') as file:
+    with open(error_log, 'a', encoding='utf-8') as file:
         file.write(f"{datetime.now()}: {message}\n")
+
 
 def retry_request(func, *args, retries=MAX_RETRIES, **kwargs):
     for attempt in range(1, retries + 1):
@@ -256,6 +256,11 @@ def get_product_details_per_language(slug, lang):
                     max_sale_qty
                     min_sale_qty
                 }
+                attributes {
+                    key
+                    label
+                    value
+                }
             }
         }
         """,
@@ -288,6 +293,16 @@ def fetch_product_details(slug, output_file, todays_date):
         product_name_in_english = product_details_eng.get('name')
         offer_start_date = product_details_eng.get('special_from_date', None)
         offer_end_date = product_details_eng.get('special_to_date', None)
+        
+        # Get additional attributes
+        attributes = product_details_eng.get("attributes", [])
+        alternative_skus = next((attr.get("value") for attr in attributes if attr.get("key") == "alternative_skus"), None)
+        product_barcode_str = product_barcode
+        
+        if alternative_skus and alternative_skus != product_barcode:
+            product_barcode_str = f"{product_barcode}, {alternative_skus}"
+            
+        product_barcode = product_barcode_str    
 
         # Get price_before_offer
         price_before_offer = product_details_eng.get('price_range', {}).get('maximum_price', {}).get('regular_price', {}).get('value', None)
@@ -380,7 +395,8 @@ def fetch_product_details(slug, output_file, todays_date):
             category_seven_ar=category_seven_ar,
             category_eight_ar=category_eight_ar,
             category_nine_ar=category_nine_ar,
-            crawled_on=todays_date
+            crawled_on=todays_date,
+            brand_image_url = ""
         )
 
         # Write the product details to an Excel file
@@ -407,3 +423,4 @@ def run_seoudi_crawler():
             time.sleep(10)  # Add a delay before restarting the script
 
 run_seoudi_crawler()
+
