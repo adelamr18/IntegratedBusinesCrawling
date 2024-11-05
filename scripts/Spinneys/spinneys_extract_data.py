@@ -7,7 +7,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from datetime import datetime
 from scripts.models.Product import Product
 from utils.helpers import write_to_excel
-from openpyxl import load_workbook, Workbook
 import json
 
 processed_barcodes = set()
