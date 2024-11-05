@@ -3,16 +3,17 @@ from bs4 import BeautifulSoup
 import sys
 import os
 import re
-import csv
+import csvsys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from datetime import datetime, timedelta
 from openpyxl import Workbook, load_workbook
 import json
 import time
 
 # Base directory and paths
+base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'  
 base_directory_windows = 'C:\\Users\\DiscoCrawler1\\Desktop\\IntegratedBusinesCrawling'
-input_csv_path = os.path.join(base_directory_windows, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
-output_directory = os.path.join(base_directory_windows, 'extractions', 'Carrefour')
+input_csv_path = os.path.join(base_directory_mac_os, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
+output_directory = os.path.join(base_directory_mac_os, 'extractions', 'Carrefour')
 
 # Models and helpers
 from models.Product import Product
