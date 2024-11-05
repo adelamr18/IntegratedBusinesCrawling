@@ -412,88 +412,107 @@ def fetch_brands():
 def fetch_product_details(slug, output_file, todays_date):
     output_file_name = os.path.join(output_file, f"spinneys_extract_data_{todays_date}.xlsx")
     
-    # Initialize product details with None as default to handle missing values
-    merchant_name = "Spinneys"
-    source_type = "Website"
-    product_id = None
-    brand_name_in_english = None
-    product_barcode = None
-    product_name_in_english = None
-    offer_start_date = None
-    offer_end_date = None
-    price_before_offer = None
-    price_after_offer = None
-    product_image_url = None
-    product_url = f"https://spinneys-egypt.com/en/{slug}"
-    categories_eng = [None] * 9
-    categories_ar = [None] * 9
-    product_name_in_arabic = None
-    brand_name_in_arabic = None
-    brand_image_url = None
+    # Fetch product details in English
+    product_details_in_english = get_product_details_per_language(slug, "default")
 
-    try:
-        # Fetch product details in English
-        product_details_in_english = get_product_details_per_language(slug, "default")
+    if product_details_in_english and product_details_in_english.status_code == 200:
+        product_data = product_details_in_english.json()
+        if product_data:
+            product_details_eng = product_data.get('data', {}).get('product', {})
+        else:
+            product_details_eng = {}
+
+        merchant_name = "Spinneys"
+        source_type = "Website"
+
+        # Use safe checks for all field extractions
+        categories_eng = product_details_eng.get('categories', []) or []
+        product_id = product_details_eng.get('id') or None
+        brand_details_eng = product_details_eng.get('brand', {}) or {}
+        brand_name_in_english = brand_details_eng.get("name") or None
+
+        # Extract all required English fields with safe checks
+        product_barcode = product_details_eng.get('sku') or None
+        product_name_in_english = product_details_eng.get('name') or None
+        offer_start_date = product_details_eng.get('special_from_date') or None
+        offer_end_date = product_details_eng.get('special_to_date') or None
         
-        if product_details_in_english and product_details_in_english.status_code == 200:
-            product_details_eng = product_details_in_english.json().get('data', {}).get('product', {})
-            if product_details_eng:
-                product_id = product_details_eng.get('id')
-                brand_details_eng = product_details_eng.get('brand', {})
-                brand_name_in_english = brand_details_eng.get("name")
-                product_barcode = product_details_eng.get('sku')
-                product_name_in_english = product_details_eng.get('name')
-                offer_start_date = product_details_eng.get('special_from_date', None)
-                offer_end_date = product_details_eng.get('special_to_date', None)
-                price_before_offer = product_details_eng.get('price_range', {}).get('maximum_price', {}).get('regular_price', {}).get('value', None)
-                price_after_offer = product_details_eng.get('price_range', {}).get('maximum_price', {}).get('final_price', {}).get('value', None)
-                
-                # Set offer dates only if there's a price difference
-                if price_after_offer == price_before_offer:
-                    price_after_offer = None
-                    offer_start_date = None
-                    offer_end_date = None
-                
-                product_image_url = product_details_eng.get('thumbnail', {}).get('url', None)
-                
-                # Fetch categories safely
-                categories_list_eng = product_details_eng.get('categories', [])
-                for i in range(min(9, len(categories_list_eng))):
-                    categories_eng[i] = categories_list_eng[i].get('name')
+        # Lookup for brand image URL safely
+        brand_image_url = brand_lookup.get(brand_name_in_english.lower().replace(" ", ""), "") if brand_name_in_english else ""
 
-                # Brand image URL lookup
-                if brand_name_in_english:
-                    brand_image_url = brand_lookup.get(brand_name_in_english.lower().replace(" ", ""), "")
+        # Get price_before_offer and check price_after_offer safely
+        price_range = product_details_eng.get('price_range', {})
+        max_price = price_range.get('maximum_price', {})
+        regular_price = max_price.get('regular_price', {})
+        final_price = max_price.get('final_price', {})
+        price_before_offer = regular_price.get('value') if regular_price else None
+        price_after_offer = final_price.get('value') if final_price else None
+        
+        if price_after_offer == price_before_offer:
+            price_after_offer = None
+            offer_start_date = None
+            offer_end_date = None
+
+        thumbnail = product_details_eng.get('thumbnail', {})
+        product_image_url = thumbnail.get('url') if thumbnail else None
+        product_url = f"https://spinneys-egypt.com/en/{slug}"
+
+        # Safely fetch product categories in English
+        def safe_get_category_name(categories, index):
+            return categories[index].get('name') if len(categories) > index and categories[index] else None
+
+        category_one_eng = safe_get_category_name(categories_eng, 0)
+        category_two_eng = safe_get_category_name(categories_eng, 1)
+        category_three_eng = safe_get_category_name(categories_eng, 2)
+        category_four_eng = safe_get_category_name(categories_eng, 3)
+        category_five_eng = safe_get_category_name(categories_eng, 4)
+        category_six_eng = safe_get_category_name(categories_eng, 5)
+        category_seven_eng = safe_get_category_name(categories_eng, 6)
+        category_eight_eng = safe_get_category_name(categories_eng, 7)
+        category_nine_eng = safe_get_category_name(categories_eng, 8)
 
         # Fetch product details in Arabic
         product_details_in_arabic = get_product_details_per_language(slug, "ar_EG")
+
+        # Initialize Arabic fields to None
+        product_name_in_arabic = None
+        brand_name_in_arabic = None
+        categories_ar = []
+
         if product_details_in_arabic and product_details_in_arabic.status_code == 200:
-            product_details_ar = product_details_in_arabic.json().get('data', {}).get('product', {})
-            
+            product_data_ar = product_details_in_arabic.json()
+            if product_data_ar:
+                product_details_ar = product_data_ar.get('data', {}).get('product', {})
+            else:
+                product_details_ar = {}
+
             if product_details_ar:
-                product_name_in_arabic = product_details_ar.get('name', None)
-                brand_details_ar = product_details_ar.get('brand', {})
-                brand_name_in_arabic = brand_details_ar.get('name', None) if brand_details_ar else None
+                product_name_in_arabic = product_details_ar.get('name') or None
+                categories_ar = product_details_ar.get('categories', []) or []
+                brand_details_ar = product_details_ar.get('brand', {}) or {}
+                brand_name_in_arabic = brand_details_ar.get('name') or None
 
-                # Fetch Arabic categories safely
-                categories_list_ar = product_details_ar.get('categories', [])
-                for i in range(min(9, len(categories_list_ar))):
-                    categories_ar[i] = categories_list_ar[i].get('name')
+        # Safely fetch product categories in Arabic
+        category_one_ar = safe_get_category_name(categories_ar, 0)
+        category_two_ar = safe_get_category_name(categories_ar, 1)
+        category_three_ar = safe_get_category_name(categories_ar, 2)
+        category_four_ar = safe_get_category_name(categories_ar, 3)
+        category_five_ar = safe_get_category_name(categories_ar, 4)
+        category_six_ar = safe_get_category_name(categories_ar, 5)
+        category_seven_ar = safe_get_category_name(categories_ar, 6)
+        category_eight_ar = safe_get_category_name(categories_ar, 7)
+        category_nine_ar = safe_get_category_name(categories_ar, 8)
 
-    except Exception as e:
-        log_error(f"Error processing product slug {slug}: {str(e)}")
-    
-    # Check if the product barcode is unique and proceed only if it is not a duplicate
     if product_barcode and product_barcode not in processed_barcodes:
         processed_barcodes.add(product_barcode)
-
-        # Create a Product instance with the gathered data
+        
+        # Create a product instance with both English and Arabic data
         product = Product(
             merchant=merchant_name,
             product_id=product_id,
             brand_en=brand_name_in_english,
             brand_ar=brand_name_in_arabic,
-            name_ar=product_name_in_arabic, 
+            name_ar=product_name_in_arabic,
             barcode=product_barcode,
             name_en=product_name_in_english,
             source_type=source_type,
@@ -503,24 +522,24 @@ def fetch_product_details(slug, output_file, todays_date):
             url=product_url,
             offer_start_date=offer_start_date,
             offer_end_date=offer_end_date,
-            category_one_eng=categories_eng[0],
-            category_two_eng=categories_eng[1],
-            category_three_eng=categories_eng[2],
-            category_four_eng=categories_eng[3],
-            category_five_eng=categories_eng[4],
-            category_six_eng=categories_eng[5],
-            category_seven_eng=categories_eng[6],
-            category_eight_eng=categories_eng[7],
-            category_nine_eng=categories_eng[8],
-            category_one_ar=categories_ar[0],
-            category_two_ar=categories_ar[1],
-            category_three_ar=categories_ar[2],
-            category_four_ar=categories_ar[3],
-            category_five_ar=categories_ar[4],
-            category_six_ar=categories_ar[5],
-            category_seven_ar=categories_ar[6],
-            category_eight_ar=categories_ar[7],
-            category_nine_ar=categories_ar[8],
+            category_one_eng=category_one_eng,
+            category_two_eng=category_two_eng,
+            category_three_eng=category_three_eng,
+            category_four_eng=category_four_eng,
+            category_five_eng=category_five_eng,
+            category_six_eng=category_six_eng,
+            category_seven_eng=category_seven_eng,
+            category_eight_eng=category_eight_eng,
+            category_nine_eng=category_nine_eng,
+            category_one_ar=category_one_ar,
+            category_two_ar=category_two_ar,
+            category_three_ar=category_three_ar,
+            category_four_ar=category_four_ar,
+            category_five_ar=category_five_ar,
+            category_six_ar=category_six_ar,
+            category_seven_ar=category_seven_ar,
+            category_eight_ar=category_eight_ar,
+            category_nine_ar=category_nine_ar,
             crawled_on=todays_date,
             brand_image_url=brand_image_url
         )
@@ -528,7 +547,7 @@ def fetch_product_details(slug, output_file, todays_date):
         # Write the product details to an Excel file
         write_to_excel(output_file_name, product)
     else:
-        log_error(f"Duplicate or missing barcode for slug {slug}")
+        log_error(f"Error fetching details for slug {slug}: {product_details_in_english.status_code if product_details_in_english else 'No response'}")
 
 
 def extract_discounted_products(output_file, todays_date):
@@ -761,7 +780,7 @@ def run_spinneys_crawler():
 
     while True:  # Infinite loop to automatically restart the script
         try:
-            #extract_all_spinneys_product_data(output_file, todays_date)
+            extract_all_spinneys_product_data(output_file, todays_date)
             extract_discounted_products(output_file, todays_date)
             print("Data extraction completed successfully.")
             break  # Exit the loop if successful
