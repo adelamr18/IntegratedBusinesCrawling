@@ -9,9 +9,10 @@ from scripts.models.Product import Product
 from utils.helpers import write_to_excel
 from openpyxl import load_workbook, Workbook
 import json
-#base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
-base_directory_windows = 'C:\\Users\\DiscoCrawler1\\Desktop\\IntegratedBusinesCrawling'
-output_directory = os.path.join(base_directory_windows, 'extractions', 'Seoudi')
+
+base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
+#base_directory_windows = 'C:\\Users\\DiscoCrawler1\\Desktop\\IntegratedBusinesCrawling'
+output_directory = os.path.join(base_directory_mac_os, 'extractions', 'Seoudi')
 progress_log = os.path.join(output_directory, 'progress_log.json')
 error_log = os.path.join(output_directory, 'error_log.txt')
 
@@ -401,7 +402,49 @@ def fetch_product_details(slug, output_file, todays_date):
 
         # Write the product details to an Excel file
         write_to_excel(output_file_name, product)
-
+        
+        # Split the combined barcodes and insert rows for each individual barcode
+        individual_barcodes = product_barcode.split(", ")
+        
+        for barcode in individual_barcodes:
+        # Create a product instance for each individual barcode
+         single_barcode_product = Product(
+            merchant=merchant_name,
+            product_id=product_id,
+            brand_en=brand_name_in_english,
+            brand_ar=brand_name_in_arabic,
+            name_ar=product_name_in_arabic,
+            barcode=barcode.strip(),
+            name_en=product_name_in_english,
+            source_type=source_type,
+            price_before=price_before_offer,
+            price_after=price_after_offer,
+            image_url=product_image_url,
+            url=product_url,
+            offer_start_date=offer_start_date,
+            offer_end_date=offer_end_date,
+            category_one_eng=category_one_eng,
+            category_two_eng=category_two_eng,
+            category_three_eng=category_three_eng,
+            category_four_eng=category_four_eng,
+            category_five_eng=category_five_eng,
+            category_six_eng=category_six_eng,
+            category_seven_eng=category_seven_eng,
+            category_eight_eng=category_eight_eng,
+            category_nine_eng=category_nine_eng,
+            category_one_ar=category_one_ar,
+            category_two_ar=category_two_ar,
+            category_three_ar=category_three_ar,
+            category_four_ar=category_four_ar,
+            category_five_ar=category_five_ar,
+            category_six_ar=category_six_ar,
+            category_seven_ar=category_seven_ar,
+            category_eight_ar=category_eight_ar,
+            category_nine_ar=category_nine_ar,
+            crawled_on=todays_date,
+            brand_image_url=""
+        )
+         write_to_excel(output_file_name, single_barcode_product)
     else:
         log_error(f"Error fetching details for slug {slug}: {product_details_in_english.status_code if product_details_in_english else 'No response'}")
 
