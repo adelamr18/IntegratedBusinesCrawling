@@ -11,12 +11,12 @@ import os
 def driver_initialize():
     firefox_options = Options()
     firefox_options.headless = True
-    firefox_options.binary_location = '/Applications/Firefox.app/Contents/MacOS/firefox'
-    # firefox_options.binary_location = r"C:\Program Files\Mozilla Firefox\firefox.exe"
-    service = Service(GeckoDriverManager().install())
+    #firefox_options.binary_location = '/Applications/Firefox.app/Contents/MacOS/firefox'
+    firefox_options.binary_location = r"C:\Program Files\Mozilla Firefox\firefox.exe"
+    #service = Service(GeckoDriverManager().install())
+    #driver = webdriver.Firefox(service=service, options=firefox_options)
+    service = Service(executable_path=r'C:\\Users\\DiscoCrawler1\\Desktop\\IntegratedBusinesCrawling\\geckodriver.exe')
     driver = webdriver.Firefox(service=service, options=firefox_options)
-    # service = Service(executable_path=r'C:\\Users\\DiscoCrawler1\\Desktop\\IntegratedBusinesCrawling\\geckodriver.exe')
-    # driver = webdriver.Firefox(service=service, options=firefox_options)
     return driver
 
 
@@ -73,5 +73,4 @@ def write_to_excel(output_file_name, product):
 
     except Exception as e:
         print(f"Error writing to Excel file {output_file_name}: {e}")
-
-        
+         
