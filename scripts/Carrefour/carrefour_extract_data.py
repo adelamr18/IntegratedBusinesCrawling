@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import sys
 import os
 import re
-import csvsys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from datetime import datetime, timedelta
 from openpyxl import Workbook, load_workbook
 import json
