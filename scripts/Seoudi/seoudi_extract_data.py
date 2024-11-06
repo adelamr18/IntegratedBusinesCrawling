@@ -6,8 +6,7 @@ import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from datetime import datetime
 from scripts.models.Product import Product
-from utils.helpers import write_to_excel
-from openpyxl import load_workbook, Workbook
+from utils.helpers import write_product_to_excel
 import json
 
 base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
@@ -401,7 +400,7 @@ def fetch_product_details(slug, output_file, todays_date):
         )
 
         # Write the product details to an Excel file
-        write_to_excel(output_file_name, product)
+        write_product_to_excel(output_file_name, product)
         
         # Split the combined barcodes and insert rows for each individual barcode
         individual_barcodes = product_barcode.split(", ")
@@ -444,7 +443,7 @@ def fetch_product_details(slug, output_file, todays_date):
             crawled_on=todays_date,
             brand_image_url=""
         )
-         write_to_excel(output_file_name, single_barcode_product)
+         write_product_to_excel(output_file_name, single_barcode_product)
     else:
         log_error(f"Error fetching details for slug {slug}: {product_details_in_english.status_code if product_details_in_english else 'No response'}")
 

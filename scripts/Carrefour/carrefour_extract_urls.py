@@ -2,7 +2,6 @@ from selenium.webdriver.common.by import By
 import sys
 import os
 from time import sleep
-from datetime import datetime  # Import datetime to get today's date
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.helpers import driver_initialize
 from selenium.webdriver.common.action_chains import ActionChains

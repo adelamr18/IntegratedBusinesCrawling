@@ -23,7 +23,7 @@ def driver_initialize():
 def convert_url_to_arabic(url):
     return url.replace('/en/', '/ar/')
 
-def write_to_excel(output_file_name, product):
+def write_product_to_excel(output_file_name, product):
     try:
         # Check if the output file already exists
         file_exists = os.path.isfile(output_file_name)
@@ -73,4 +73,30 @@ def write_to_excel(output_file_name, product):
 
     except Exception as e:
         print(f"Error writing to Excel file {output_file_name}: {e}")
-         
+
+
+def write_brands_to_excel(output_file_name, brands):
+    try:
+        # Check if the output file already exists
+        file_exists = os.path.isfile(output_file_name)
+
+        # Load or create a workbook
+        if file_exists:
+            workbook = load_workbook(output_file_name)
+            sheet = workbook.active
+        else:
+            workbook = Workbook()
+            sheet = workbook.active
+            # Add headers if creating a new file
+            sheet.append(['Brand Name', 'Brand Image URL'])
+
+        # Write each brand's name and image URL to the sheet
+        for brand_name, image_url in brands:
+            sheet.append([brand_name, image_url])
+
+        # Save and close the workbook
+        workbook.save(output_file_name)
+        workbook.close()
+
+    except Exception as e:
+        print(f"Error writing to Excel file {output_file_name}: {e}")
