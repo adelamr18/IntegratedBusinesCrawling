@@ -6,15 +6,15 @@ import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from datetime import datetime
 from scripts.models.Product import Product
-from utils.helpers import write_to_excel
+from utils.helpers import write_product_to_excel, write_brands_to_excel
 import json
 
 processed_barcodes = set()
 
 # Paths and directories
-#base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
-base_directory_windows = r'C:\Users\DiscoCrawler1\Desktop\IntegratedBusinesCrawling'
-output_directory = os.path.join(base_directory_windows, 'extractions', 'Spinneys')
+base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
+#base_directory_windows = r'C:\Users\DiscoCrawler1\Desktop\IntegratedBusinesCrawling'
+output_directory = os.path.join(base_directory_mac_os, 'extractions', 'Spinneys')
 progress_log = os.path.join(output_directory, 'progress_log.json')
 error_log = os.path.join(output_directory, 'error_log.txt')
 
@@ -335,9 +335,10 @@ def get_product_details_per_language(slug, lang):
     
 brand_lookup = {}
 
-def fetch_brands():
+def fetch_brands(output_file, todays_date):
     """Fetch brands for each letter of the alphabet and populate the lookup table."""
     url = "https://spinneys-egypt.com/graphql"
+    collected_brands = []
     
     # Set parameters for the loop
     page_size = 100  # Number of brands per page
@@ -399,6 +400,7 @@ def fetch_brands():
                     image_url = brand.get("image_url")
                     if name and image_url:
                         brand_lookup[name] = image_url
+                        collected_brands.append((name, image_url))
                 
                 # Update pagination info
                 page_info = data.get("data", {}).get("brands", {}).get("page_info", {})
@@ -408,6 +410,9 @@ def fetch_brands():
                 print(f"Failed to fetch brands data for '{alpha}': {response.status_code}")
                 break
             
+    output_file_name = os.path.join(output_file, f"extract_spinneys_all_brands_{todays_date}.xlsx")
+    write_brands_to_excel(output_file_name, collected_brands)  
+    
 def fetch_product_details(slug, output_file, todays_date):
     output_file_name = os.path.join(output_file, f"spinneys_extract_data_{todays_date}.xlsx")
     
@@ -544,7 +549,7 @@ def fetch_product_details(slug, output_file, todays_date):
         )
 
         # Write the product details to an Excel file
-        write_to_excel(output_file_name, product)
+        write_product_to_excel(output_file_name, product)
     else:
         log_error(f"Error fetching details for slug {slug}: {product_details_in_english.status_code if product_details_in_english else 'No response'}")
 
@@ -773,9 +778,8 @@ def extract_discounted_products(output_file, todays_date):
 def extract_all_spinneys_product_data(output_file, todays_date):
     extract_products_per_category(output_file, todays_date)
 
-def run_spinneys_crawler():
+def run_spinneys_crawler(todays_date):
     output_file = os.path.join(output_directory)
-    todays_date = datetime.today().strftime('%Y-%m-%d')
 
     while True:  # Infinite loop to automatically restart the script
         try:
@@ -788,5 +792,6 @@ def run_spinneys_crawler():
             print(f"Error encountered: {e}. Restarting script in 10 seconds...")
             time.sleep(10)  # Add a delay before restarting the script
             
-fetch_brands()
-run_spinneys_crawler()
+todays_date = datetime.today().strftime('%Y-%m-%d') 
+fetch_brands(output_directory, todays_date)
+run_spinneys_crawler(todays_date)
