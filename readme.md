@@ -1,4 +1,4 @@
-To run the individual scripts please do the following steps:
+### `To run the individual scripts please do the following steps`:
 1- Open project in terminal then type: python3 -m venv myenv (to create virtual environment)
 2- Then type: source myenv/bin/activate (to activate virtual environment)
 3- Then type: pip install -r requirements.txt (to install all dependencies)
