@@ -14,6 +14,7 @@ import csv
 base_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
 output_directory = os.path.join(base_directory, 'extractions', 'Carrefour')
+os.makedirs(output_directory, exist_ok=True)
 
 # Models and helpers
 from models.Product import Product

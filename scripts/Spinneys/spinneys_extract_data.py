@@ -14,6 +14,7 @@ processed_barcodes = set()
 # Paths and directories
 base_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 output_directory = os.path.join(base_directory, 'extractions', 'Spinneys')
+os.makedirs(output_directory, exist_ok=True)
 progress_log = os.path.join(output_directory, 'progress_log.json')
 error_log = os.path.join(output_directory, 'error_log.txt')
 
