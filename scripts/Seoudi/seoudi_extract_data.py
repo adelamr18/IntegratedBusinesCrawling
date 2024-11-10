@@ -9,9 +9,8 @@ from scripts.models.Product import Product
 from utils.helpers import write_product_to_excel
 import json
 
-base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
-#base_directory_windows = 'C:\\Users\\DiscoCrawler1\\Desktop\\IntegratedBusinesCrawling'
-output_directory = os.path.join(base_directory_mac_os, 'extractions', 'Seoudi')
+base_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+output_directory = os.path.join(base_directory, 'extractions', 'Seoudi')
 progress_log = os.path.join(output_directory, 'progress_log.json')
 error_log = os.path.join(output_directory, 'error_log.txt')
 

@@ -1,5 +1,5 @@
 selenium
 requests
 openpyxl
-beautifulsoup4
+bs4
 webdriver_manager

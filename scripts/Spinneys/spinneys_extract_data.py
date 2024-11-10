@@ -12,9 +12,8 @@ import json
 processed_barcodes = set()
 
 # Paths and directories
-base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
-#base_directory_windows = r'C:\Users\DiscoCrawler1\Desktop\IntegratedBusinesCrawling'
-output_directory = os.path.join(base_directory_mac_os, 'extractions', 'Spinneys')
+base_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+output_directory = os.path.join(base_directory, 'extractions', 'Spinneys')
 progress_log = os.path.join(output_directory, 'progress_log.json')
 error_log = os.path.join(output_directory, 'error_log.txt')
 

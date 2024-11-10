@@ -8,12 +8,12 @@ from datetime import datetime, timedelta
 from openpyxl import Workbook, load_workbook
 import json
 import time
+import csv
 
 # Base directory and paths
-base_directory_mac_os = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'  
-base_directory_windows = 'C:\\Users\\DiscoCrawler1\\Desktop\\IntegratedBusinesCrawling'
-input_csv_path = os.path.join(base_directory_mac_os, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
-output_directory = os.path.join(base_directory_mac_os, 'extractions', 'Carrefour')
+base_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
+output_directory = os.path.join(base_directory, 'extractions', 'Carrefour')
 
 # Models and helpers
 from models.Product import Product
@@ -324,7 +324,7 @@ def run_carrefour_crawler():
     output_file_name = os.path.join(output_directory, f'extracted_products_{crawled_date}.xlsx')
 
     # Load URLs from CSV
-    urls_to_process = read_urls_from_csv()
+    urls_to_process = read_urls_from_csv(input_csv_path)
 
     # Retry unprocessed URLs
     for url in urls_to_process:
