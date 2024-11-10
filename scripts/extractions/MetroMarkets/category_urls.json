@@ -5,40 +5,16 @@
             "url": "https://www.metro-markets.com/categoryl1/Bakery/9"
         },
         {
-            "name": "Beverages",
+            "name": "Beverage",
             "url": "https://www.metro-markets.com/categoryl1/Beverage/22"
         },
         {
-            "name": "Canned-Food",
+            "name": "Canned Food",
             "url": "https://www.metro-markets.com/categoryl1/Canned-Food/14"
         },
         {
             "name": "Confectionary",
             "url": "https://www.metro-markets.com/categoryl1/Confectionary/20"
-        },
-        {
-            "name": "Pantry",
-            "url": "https://spinneys-egypt.com/pantry"
-        },
-        {
-            "name": "Snacks & Beverages",
-            "url": "https://spinneys-egypt.com/snacks-beverages"
-        },
-        {
-            "name": "Frozen Foods",
-            "url": "https://spinneys-egypt.com/frozen-foods"
-        },
-        {
-            "name": "Household Essentials",
-            "url": "https://spinneys-egypt.com/household-essentials"
-        },
-        {
-            "name": "Personal Care",
-            "url": "https://spinneys-egypt.com/personal-care"
-        },
-        {
-            "name": "Baby Products",
-            "url": "https://spinneys-egypt.com/baby-products"
         },
         {
             "name": "Dairy",
@@ -65,11 +41,11 @@
             "url": "https://www.metro-markets.com/categoryl1/Fruit/1"
         },
         {
-            "name": "Commodities",
+            "name": "Grocery",
             "url": "https://www.metro-markets.com/categoryl1/Commodities/15"
         },
         {
-            "name": "Health & Beauty",
+            "name": "Health and Beauty",
             "url": "https://www.metro-markets.com/categoryl1/Health&-Beauty/28"
         },
         {
@@ -81,7 +57,7 @@
             "url": "https://www.metro-markets.com/categoryl1/Home-Base/4"
         },
         {
-            "name": "Home & Fabric Care",
+            "name": "Home and Fabric Care",
             "url": "https://www.metro-markets.com/categoryl1/Home-&Fabric-Care/26"
         },
         {
@@ -89,7 +65,7 @@
             "url": "https://www.metro-markets.com/categoryl1/Hot-Drinks/21"
         },
         {
-            "name": "Metro",
+            "name": "Metro Exclusive Products",
             "url": "https://www.metro-markets.com/categoryl1/Metro/39"
         },
         {
@@ -113,7 +89,7 @@
             "url": "https://www.metro-markets.com/categoryl1/Snacks/19"
         },
         {
-            "name": "Communications",
+            "name": "Tech Accessories",
             "url": "https://www.metro-markets.com/categoryl1/Communications/32"
         },
         {

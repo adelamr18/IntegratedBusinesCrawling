@@ -9,7 +9,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Set the base directory and input/output paths
-base_directory = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
+base_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 input_json_path_for_category_urls = os.path.join(base_directory, 'extractions', 'MetroMarkets', 'category_urls.json')
 output_directory = os.path.join(base_directory, 'extractions', 'MetroMarkets')
 
