@@ -90,7 +90,7 @@ def scrape_category_pages(base_url, category_name, output_file_name):
             page_num += 1
             time.sleep(1)  # Be kind to the server
 
-def run_metro_crawler_to_extract_products_urls():
+def run_metro_markets_product_urls_crawler():
     # Load the category URLs from JSON
     crawled_date = datetime.now().strftime('%Y-%m-%d')
     output_file_name = os.path.join(output_directory, f'extracted_urls_{crawled_date}.csv')
@@ -102,4 +102,4 @@ def run_metro_crawler_to_extract_products_urls():
         category_url = category['url']
         scrape_category_pages(category_url, category_name, output_file_name)
 
-run_metro_crawler_to_extract_products_urls()
+run_metro_markets_product_urls_crawler()

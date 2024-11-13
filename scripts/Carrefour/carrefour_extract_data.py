@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from openpyxl import Workbook, load_workbook
 import json
 import time
-import csv
 
 # Base directory and paths
 base_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -18,7 +17,8 @@ os.makedirs(output_directory, exist_ok=True)
 
 # Models and helpers
 from models.Product import Product
-from utils.helpers import convert_url_to_arabic
+from utils.helpers import convert_url_to_arabic, write_product_to_excel, read_urls_from_csv, update_is_processed_in_csv
+from utils.extraction_helpers import extract_product_name_in_english
 
 # Extract brand name using BeautifulSoup
 def extract_brand_name(soup):
@@ -99,15 +99,6 @@ def extract_image_url(soup):
         print(f"Error extracting image URL: {e}")
         return "Image not found"
 
-# Extract product name in English using BeautifulSoup
-def extract_product_name_in_english(soup):
-    try:
-        product_name_en = soup.select_one('.css-106scfp').text
-        return product_name_en if product_name_en else "Product name not found"
-    except Exception as e:
-        print(f"Error extracting product name: {e}")
-        return "Product name not found"
-
 # Extract product price before offer using BeautifulSoup
 def extract_product_price_before_offer(soup, price_after_offer):
     try:
@@ -135,111 +126,6 @@ def extract_product_price_after_offer(soup):
     except Exception:
         return ""
 
-# Write product data to Excel file
-def write_to_excel(output_file_name, product):
-    file_exists = os.path.isfile(output_file_name)
-    if file_exists:
-        workbook = load_workbook(output_file_name)
-        sheet = workbook.active
-    else:
-        workbook = Workbook()
-        sheet = workbook.active
-        sheet.append([
-            'Merchant', 'Id', 'Brand ar', 'Brand en', 'Barcode', 'Item Name AR',
-            'Item Name EN', 'Category 1 EN', 'Category 2 EN', 'Category 3 EN',
-            'Category 4 EN', 'Category 5 EN', 'Category 6 EN', 'Category 7 EN',
-            'Category 1 AR', 'Category 2 AR', 'Category 3 AR',
-            'Category 4 AR', 'Category 5 AR', 'Category 6 AR', 'Category 7 AR',
-            'Price before', 'Price after', 'Offer start date', 'Offer end date',
-            'Url', 'Picture', 'Type', 'Crawled on'
-        ])
-    sheet.append([
-        product.merchant, product.product_id, product.brand_ar, product.brand_en,
-        product.barcode, product.name_ar, product.name_en, product.category_one_eng,
-        product.category_two_eng, product.category_three_eng, product.category_four_eng,
-        product.category_five_eng, product.category_six_eng, product.category_seven_eng,
-        product.category_one_ar, product.category_two_ar, product.category_three_ar,
-        product.category_four_ar, product.category_five_ar, product.category_six_ar,
-        product.category_seven_ar, product.price_before, product.price_after,
-        product.offer_start_date, product.offer_end_date, product.url, product.image_url,
-        product.source_type, product.crawled_on
-    ])
-    workbook.save(output_file_name)
-
-# Update the processed status of a URL in the CSV
-def update_is_processed_in_csv(url, is_successful):
-    rows = []
-    url_found = False  # Flag to check if the URL exists
-    try:
-        with open(input_csv_path, mode='r', newline='', encoding='utf-8') as file:
-            reader = csv.reader(file)
-            header = next(reader)
-
-            # Add is_processed header if not exists
-            if len(header) < 3 or header[2] != 'is_processed':
-                header.append('is_processed')
-            rows.append(header)
-
-            for row in reader:
-                if row[1] == url:
-                    url_found = True
-                    # If URL is found, update the is_processed status
-                    if len(row) < 3:
-                        row.append('True' if is_successful else 'False')
-                    else:
-                        row[2] = 'True' if is_successful else 'False'
-                rows.append(row)
-
-            # If the URL was not found, append a new row with the corresponding status
-            if not url_found:
-                rows.append([None, url, 'True' if is_successful else 'False'])  # Assuming None for the first column
-
-        # Write updated rows back to CSV
-        with open(input_csv_path, mode='w', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerows(rows)
-
-    except Exception as e:
-        print(f"Error updating CSV file: {e}")
-
-        # If an error happens, we still want to mark the URL as not processed
-        rows.append([None, url, 'False'])  # Assuming None for the first column
-        # Write rows back to CSV, ensuring the header is included
-        try:
-            with open(input_csv_path, mode='w', newline='', encoding='utf-8') as file:
-                writer = csv.writer(file)
-                writer.writerows(rows)
-        except Exception as write_error:
-            print(f"Error writing to CSV file: {write_error}")
-
-
-    except Exception as e:
-        print(f"Error updating CSV file: {e}")
-        # If an error happens, we still want to mark the URL as not processed
-        rows.append([None, url, 'False'])  # Assuming None for the first column
-        # Write rows back to CSV, ensuring the header is included
-        try:
-            with open(input_csv_path, mode='w', newline='', encoding='utf-8') as file:
-                writer = csv.writer(file)
-                writer.writerows(rows)
-        except Exception as write_error:
-            print(f"Error writing to CSV file: {write_error}")
-
-def read_urls_from_csv(csv_file_path):
-    urls = []
-    try:
-        with open(csv_file_path, mode='r', newline='', encoding='utf-8') as file:
-            reader = csv.reader(file)
-            # Skip the header
-            next(reader)
-            for row in reader:
-                # Append URLs where is_processed is either False, empty, or not present
-                if len(row) < 3 or row[2].strip().lower() == 'false' or row[2].strip() == '':
-                    urls.append(row[1])  # Append the URL
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-    return urls
-
 # Process each URL and extract product information
 def process_url(url, output_file_name, crawled_date):
     try:
@@ -258,7 +144,7 @@ def process_url(url, output_file_name, crawled_date):
         eng_response = requests.get(url)
         soup = BeautifulSoup(eng_response.text, 'html.parser')
 
-        product_name_in_english = extract_product_name_in_english(soup)
+        product_name_in_english = extract_product_name_in_english(soup, '.css-106scfp')
         brand_name_in_english = extract_brand_name(soup)
         product_id = re.search(r'/p/(\d+)', url).group(1) if re.search(r'/p/(\d+)', url) else "id not found"
         categories_eng = extract_categories(soup)
@@ -306,16 +192,16 @@ def process_url(url, output_file_name, crawled_date):
             brand_image_url = ""
         )
 
-        write_to_excel(output_file_name, product)
+        write_product_to_excel(output_file_name, product)
 
         # Mark URL as processed
-        update_is_processed_in_csv(url, True)
+        update_is_processed_in_csv(url, True, input_csv_path)
 
     except Exception as e:
         print(f"Error processing {url}: {e}")
         is_successful = False
         # Mark URL as unprocessed if an error occurs
-        update_is_processed_in_csv(url, is_successful)
+        update_is_processed_in_csv(url, is_successful, input_csv_path)
 
     return is_successful
 

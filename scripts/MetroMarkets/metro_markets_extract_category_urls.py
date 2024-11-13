@@ -17,7 +17,7 @@ output_directory = os.path.join(base_directory, 'extractions', 'MetroMarkets')
 os.makedirs(output_directory, exist_ok=True)  # Create the directory if it doesn't exist
 output_json_path = os.path.join(output_directory, 'category_urls.json')
 
-def run_metro_markets_crawler_to_get_category_urls(driver):
+def run_metro_markets_category_urls_crawler(driver):
     # Initialize actions
     actions = ActionChains(driver)
 
@@ -57,4 +57,4 @@ def run_metro_markets_crawler_to_get_category_urls(driver):
 
 # Run the crawler function
 driver = driver_initialize()
-run_metro_markets_crawler_to_get_category_urls(driver)
+run_metro_markets_category_urls_crawler(driver)
