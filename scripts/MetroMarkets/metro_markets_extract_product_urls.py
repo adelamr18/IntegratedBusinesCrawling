@@ -9,9 +9,10 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Set the base directory and input/output paths
-base_directory = '/Users/ajlapandzic/Desktop/Projects/IntegratedBusinesCrawling'
+base_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 input_json_path_for_category_urls = os.path.join(base_directory, 'extractions', 'MetroMarkets', 'category_urls.json')
 output_directory = os.path.join(base_directory, 'extractions', 'MetroMarkets')
+os.makedirs(output_directory, exist_ok=True)
 
 def load_category_urls(json_file):
     """Load category URLs from a JSON file."""
@@ -89,7 +90,7 @@ def scrape_category_pages(base_url, category_name, output_file_name):
             page_num += 1
             time.sleep(1)  # Be kind to the server
 
-def main():
+def run_metro_markets_product_urls_crawler():
     # Load the category URLs from JSON
     crawled_date = datetime.now().strftime('%Y-%m-%d')
     output_file_name = os.path.join(output_directory, f'extracted_urls_{crawled_date}.csv')
@@ -101,5 +102,4 @@ def main():
         category_url = category['url']
         scrape_category_pages(category_url, category_name, output_file_name)
 
-if __name__ == "__main__":
-    main()
+run_metro_markets_product_urls_crawler()
