@@ -5,7 +5,6 @@ import os
 import re
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from datetime import datetime, timedelta
-from openpyxl import Workbook, load_workbook
 import json
 import time
 from utils.extraction_helpers import extract_product_name_in_arabic
