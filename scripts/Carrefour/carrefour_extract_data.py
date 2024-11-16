@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from openpyxl import Workbook, load_workbook
 import json
 import time
+from utils.extraction_helpers import extract_product_name_in_arabic
 
 # Base directory and paths
 base_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -81,15 +82,6 @@ def extract_product_barcode(soup):
     except Exception as e:
         return "Product barcode not found"
 
-# Extract product name in Arabic using BeautifulSoup
-def extract_product_name_in_arabic(soup):
-    try:
-        product_name_ar = soup.select_one('.css-106scfp').text
-        return product_name_ar if product_name_ar else "لم يتم العثور على اسم المنتج"
-    except Exception as e:
-        print(f"Error extracting product name: {e}")
-        return "لم يتم العثور على اسم المنتج"
-
 # Extract image URL using BeautifulSoup
 def extract_image_url(soup):
     try:
@@ -133,18 +125,19 @@ def process_url(url, output_file_name, crawled_date):
         url_in_arabic = convert_url_to_arabic(url)
         ar_response = requests.get(url_in_arabic)
         soup_ar = BeautifulSoup(ar_response.text, 'html.parser')
+        product_name_selector = '.css-106scfp'
 
         merchant = 'Carrefour'
         source_type = 'Website'
 
-        product_name_in_arabic = extract_product_name_in_arabic(soup_ar)
+        product_name_in_arabic = extract_product_name_in_arabic(soup_ar, product_name_selector)
         brand_name_in_arabic = extract_brand_name(soup_ar)
         categories_ar = extract_categories(soup_ar)
 
         eng_response = requests.get(url)
         soup = BeautifulSoup(eng_response.text, 'html.parser')
 
-        product_name_in_english = extract_product_name_in_english(soup, '.css-106scfp')
+        product_name_in_english = extract_product_name_in_english(soup, product_name_selector)
         brand_name_in_english = extract_brand_name(soup)
         product_id = re.search(r'/p/(\d+)', url).group(1) if re.search(r'/p/(\d+)', url) else "id not found"
         categories_eng = extract_categories(soup)

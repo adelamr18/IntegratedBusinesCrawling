@@ -3,3 +3,4 @@ requests
 openpyxl
 bs4
 webdriver_manager
+lxml

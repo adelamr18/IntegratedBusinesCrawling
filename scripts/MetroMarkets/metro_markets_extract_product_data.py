@@ -2,12 +2,11 @@ import requests
 from bs4 import BeautifulSoup
 import sys
 import os
-import re
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from datetime import datetime, timedelta
-from openpyxl import Workbook, load_workbook
+from datetime import datetime
 import json
 import time
+from utils.extraction_helpers import extract_product_name_in_arabic_using_xpath
 
 # Base directory and paths
 base_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -69,13 +68,8 @@ def extract_categories(soup):
             a_tag = li.find('a')
             if a_tag and a_tag.text.strip():
                 parent_categories.append(a_tag.text.strip())
-            else:
-                # If no 'a' tag, check for 'h5' tag and get the text
-                h5_tag = li.find('h5')
-                if h5_tag and h5_tag.text.strip():
-                    parent_categories.append(h5_tag.text.strip())
-                else:
-                    parent_categories.append("")  # Add an empty string if no text is found
+            else:          
+                 parent_categories.append("")  # Add an empty string if no text is found
 
         # Ensure there are exactly 7 categories by adding empty strings if necessary
         while len(parent_categories) < 7:
@@ -103,8 +97,9 @@ def process_url(url, output_file_name, crawled_date):
         # Fetch and parse the Arabic page
         ar_response = requests.get(url_in_arabic)
         soup_ar = BeautifulSoup(ar_response.text, 'html.parser')
+        product_name_in_arabic_xpath = '/html/body/div[3]/div[1]/main/div/div/div/div[2]/div/header/div/h5'
         
-        product_name_in_arabic = ""
+        product_name_in_arabic = extract_product_name_in_arabic_using_xpath(soup_ar, product_name_in_arabic_xpath)
             
         categories_ar = extract_categories(soup_ar)
 
