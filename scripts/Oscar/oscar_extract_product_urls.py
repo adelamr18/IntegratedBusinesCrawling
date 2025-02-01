@@ -3,15 +3,15 @@ from bs4 import BeautifulSoup
 import time
 import csv
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import json
 from datetime import datetime
 import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Set the base directory and input/output paths
 base_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-input_json_path_for_category_urls = os.path.join(base_directory, 'extractions', 'MetroMarkets', 'category_urls.json')
-output_directory = os.path.join(base_directory, 'extractions', 'MetroMarkets')
+input_json_path_for_category_urls = os.path.join(base_directory, 'extractions', 'Oscar', 'category_urls.json')
+output_directory = os.path.join(base_directory, 'extractions', 'Oscar')
 os.makedirs(output_directory, exist_ok=True)
 
 def load_category_urls(json_file):
@@ -42,18 +42,17 @@ def scrape_category_pages(base_url, category_name, output_file_name):
             if response.status_code != 200:
                 print(f"Failed to retrieve page {page_num}. Status code: {response.status_code}")
                 break
-
             # Parse page content
             soup = BeautifulSoup(response.content, "html.parser")
             
             # Select the parent container holding all products per page
-            product_container = soup.select_one("body > div.root > div.home-wrapper > div.search-parent-wrapper > main > div > div.search-content > div.search-grid-wrapper > div")
+            product_container = soup.select_one("#body > div.main > div > div.col-xl-9.col-12 > div > div.d-flex.justify-content-center > div")
             if not product_container:
                 print("No products found on this page.")
                 break
 
             # Loop through each product inside the container and extract the data
-            products = product_container.find_all('div', class_="product-card")  # Update with the actual class name
+            products = product_container.find_all('div', class_="card")  # Update with the actual class name
             for product in products:
                 # Extract the link to the product
                 product_link = product.select_one('a')['href'] if product.select_one('a') else None
@@ -89,17 +88,3 @@ def scrape_category_pages(base_url, category_name, output_file_name):
             # Move to the next page
             page_num += 1
             time.sleep(1)  # Be kind to the server
-
-def run_metro_markets_product_urls_crawler():
-    # Load the category URLs from JSON
-    crawled_date = datetime.now().strftime('%Y-%m-%d')
-    output_file_name = os.path.join(output_directory, f'extracted_urls_{crawled_date}.csv')
-    categories = load_category_urls(input_json_path_for_category_urls)
-
-    # Call the scraping function for each category
-    for category in categories:
-        category_name = category['name']
-        category_url = category['url']
-        scrape_category_pages(category_url, category_name, output_file_name)
-
-run_metro_markets_product_urls_crawler()
