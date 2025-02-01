@@ -9,6 +9,7 @@ import json
 import time
 from utils.extraction_helpers import extract_product_name_in_arabic
 
+
 # Base directory and paths
 base_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 input_csv_path = os.path.join(base_directory, 'extractions', 'Carrefour', 'extract_carrefour_urls_19_09_2024.csv')
@@ -20,6 +21,7 @@ from models.Product import Product
 from utils.helpers import convert_url_to_arabic, write_product_to_excel, read_urls_from_csv, update_is_processed_in_csv
 from utils.extraction_helpers import extract_product_name_in_english
 
+print("Starting Script")
 # Extract brand name using BeautifulSoup
 def extract_brand_name(soup):
     try:
@@ -120,9 +122,12 @@ def extract_product_price_after_offer(soup):
 # Process each URL and extract product information
 def process_url(url, output_file_name, crawled_date):
     try:
+        headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+}
         is_successful = True
         url_in_arabic = convert_url_to_arabic(url)
-        ar_response = requests.get(url_in_arabic)
+        ar_response = requests.get(url_in_arabic,headers=headers, timeout=10)
         soup_ar = BeautifulSoup(ar_response.text, 'html.parser')
         product_name_selector = '.css-106scfp'
 
@@ -133,7 +138,7 @@ def process_url(url, output_file_name, crawled_date):
         brand_name_in_arabic = extract_brand_name(soup_ar)
         categories_ar = extract_categories(soup_ar)
 
-        eng_response = requests.get(url)
+        eng_response = requests.get(url,headers=headers, timeout=10)
         soup = BeautifulSoup(eng_response.text, 'html.parser')
 
         product_name_in_english = extract_product_name_in_english(soup, product_name_selector)
@@ -188,14 +193,16 @@ def process_url(url, output_file_name, crawled_date):
 
         # Mark URL as processed
         update_is_processed_in_csv(url, True, input_csv_path)
+        return True
 
     except Exception as e:
         print(f"Error processing {url}: {e}")
         is_successful = False
         # Mark URL as unprocessed if an error occurs
         update_is_processed_in_csv(url, is_successful, input_csv_path)
+        return False
 
-    return is_successful
+
 
 # Main function to run the crawler
 def run_carrefour_crawler():
@@ -212,5 +219,6 @@ def run_carrefour_crawler():
             print(f"Retrying URL: {url}")
             time.sleep(5)  # Wait before retrying
             process_url(url, output_file_name, crawled_date)
+            print("done  url")
 
 run_carrefour_crawler()
