@@ -8,4 +8,6 @@ python -m scripts.Carrefour.carrefour_extract_data (For Carrefour)
 python -m scripts.Seoudi.seoudi_extract_data (For Seoudi)
 python -m scripts.Spinneys.spinneys_extract_data (For Spinneys)
 python -m scripts.MetroMarkets.metro_markets_extract_product_data (For MetroMarkets)
+python -m scripts.Oscar.oscar_extract_product_urls (For MetroMarkets)
+
 
